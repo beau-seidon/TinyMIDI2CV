@@ -1,10 +1,12 @@
 # goMIDI2CV  
-Largely reworked version of the goMIDI2CV project by Jan Ostman.  
-
-Original project: [https://www.hackster.io/janost/diy-good-ol-midi-to-cv-d0e2bf]  
+This is a largely reworked version of the goMIDI2CV project by Jan Ostman.  
 
 
-## DIY Good Ol’ MIDI to CV 
+
+## DIY Good Ol’ MIDI to CV  
+
+From original project: [https://www.hackster.io/janost/diy-good-ol-midi-to-cv-d0e2bf]  
+
 The goMIDI2CV takes TTL-MIDI input and outputs a 1V/Octave CV and a gate signal.
 
 ![img1](./other%20resources/images/midi2cvchip.png "midi2cvchip.png")
