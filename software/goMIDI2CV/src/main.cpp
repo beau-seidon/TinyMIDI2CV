@@ -4,7 +4,7 @@
 // http://blog.dspsynth.eu/diy-good-ol-midi-to-cv/
 // Copyright 2019 DSP Synthesizers Sweden.
 //
-// Author: Jan Ostman; edited largely by Beau Sterling
+// Author: Jan Ostman; edited by Beau Sterling
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -74,6 +74,7 @@ void setup() {
 
     digitalWrite(2,LOW);                                                                // Set initial Gate to LOW;
 }
+
 
 
 void handleNoteOn() {
