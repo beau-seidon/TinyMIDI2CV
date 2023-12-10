@@ -1,11 +1,13 @@
 # goMIDI2CV  
 Largely reworked version of the goMIDI2CV project by Jan Ostman.  
-Original project: [https://www.hackster.io/janost/diy-good-ol-midi-to-cv-d0e2bf]
 
-## DIY Good Ol’ MIDI to CV
+Original project: [https://www.hackster.io/janost/diy-good-ol-midi-to-cv-d0e2bf]  
+
+
+## DIY Good Ol’ MIDI to CV 
 The goMIDI2CV takes TTL-MIDI input and outputs a 1V/Octave CV and a gate signal.
 
-![img1](Icon-pictures.png "img1")
+![img1](other resources/images/midi2cvchip.png "img1")
 
 ## Story
 _This is really a tutorial on how to use the USI component on the ATtiny as a UART-RX and MIDI is as good as any application for a UART._
@@ -18,7 +20,7 @@ Now you can.
 
 The goMIDI2CV takes a TTL-MIDI input and outputs a 1V/Octave CV and a gate signal.
 
-![img2](Icon-pictures.png "img2")
+![img2](other resources/images/gomidi2cv_L4cEjyrZ62.png "img2")
 
 The code runs on a ATtiny45/85 microcontroller.
 
@@ -26,13 +28,14 @@ PB0 is the MIDI input.PB1 is the CV output.PB2 is the gate output
 
 The MIDI-in is a TTL input and needs the usual optocoupler.
 
-![img3](Icon-pictures.png "img3")
+![img3](other resources/images/midi_input_opto_aIgUWQdn2x.png "img3")
 
 The CV-out is a PWM signal and needs a lowpass filter. Range is C2-C7, 0-5 volts.
 
 The gate output is 5 volt for note-on and 0 volt for Note-off.
 
 Note: The chip can run off MIDI ghost-power but for the CV to play in tune the supply voltage needs to be exactly 5 volts.
+
 
 ## Building blocks
 There are 2 major basic components needed for making the converter:
@@ -103,7 +106,7 @@ Next we need a pinchange interrupt to handle the start bit in the MIDI serial in
 
 MIDI is serial data at 31250bits/s so one bit time is 32 microseconds.
 
-![img4](Icon-pictures.png "img4")
+![img4](other resources/images/serial-byte2_68s35OcssG.png "img4")
 
 The start of a byte causes a pin-change interrupt. In the pin-change interrupt service routine we check that it’s a falling edge, and if so we set up Timer/Counter0 in CTC mode. We want to set up a delay of half a bit, to get into the middle of the start bit. The closest we can get to that is a prescaler of 8 and a compare match of 32. Finally we clear and enable the output compare interrupt.
 
@@ -124,7 +127,7 @@ The compare match interrupt occurs in the middle of the start bit. In the compar
     ISR (TIMER0_COMPA_vect) {
       TIMSK &= ~(1<<OCIE0A);          // Disable COMPA interrupt
       TCNT0 = 0;                      // Count up from 0
-      OCR0A = 63;                    // Shift every (63+1)*8 cycles 32uS
+      OCR0A = 63;                     // Shift every (63+1)*8 cycles 32uS
       // Enable USI OVF interrupt, and select Timer0 compare match as USI Clock source:
       USICR = 1<<USIOIE | 0<<USIWM0 | 1<<USICS0;
       USISR = 1<<USIOIF | 8;          // Clear USI OVF flag, and set counter
