@@ -32,6 +32,10 @@
     #define sbi(sfr, bit) (_SFR_BYTE(sfr) |= _BV(bit))
 #endif
 
+const int USI_PIN = 0;
+const int NOTE_CV_PIN = 1;
+const int GATE_CV_PIN = 2;
+const int BEND_CV_PIN = 4;
 
 volatile uint8_t midi_message_byte = 0;
 volatile byte midi_status = 0x0;
@@ -42,9 +46,12 @@ volatile byte midi_data2 = 0x0;
 const bool MIDI_OMNI = true;                                                              // Set true to ignore filter, or false to use a single midi channel
 const byte MIDI_CHANNEL_FILTER = 0x15;                                                    // MIDI channel 16
 
+const byte LOW_NOTE = 36;                                                                 // Any note lower than C2 will be interpreted as C2
+const byte HIGH_NOTE = 96;                                                                // Any note higher than C7 will be interpreted as C7
+
 const uint8_t MAX_NOTES = 16;                                                             // Set buffer and gate "polyphony" limit
 byte note_buffer[MAX_NOTES] = {0};
-uint8_t active_notes = 0;                                                                 // Gate will be open while any keys are pressed (notes active)
+uint8_t active_notes = 0;                                                                 // Gate will be open while any keys are pressed (any notes active)
 
 
 
@@ -68,20 +75,27 @@ void setup() {
     GTCCR = 1 << PWM1B | 2 << COM1B0;                                                     // PWM B, clear on match 
 
     // Setup GPIO
-    pinMode(0, INPUT);                                                                    // Enable USI input pin
-    pinMode(1, OUTPUT);                                                                   // Enable PWM output pin
-    pinMode(2, OUTPUT);                                                                   // Enable Gate output pin
-    pinMode(4, OUTPUT);                                                                   // Enable Pitchbend PWM output pin
+    pinMode(USI_PIN, INPUT);                                                              // Enable USI input pin
+    pinMode(NOTE_CV_PIN, OUTPUT);                                                         // Enable PWM output pin
+    pinMode(GATE_CV_PIN, OUTPUT);                                                         // Enable Gate output pin
+    pinMode(BEND_CV_PIN, OUTPUT);                                                         // Enable Pitchbend PWM output pin
 
-    digitalWrite(2,LOW);                                                                  // Set initial Gate to LOW;
+    digitalWrite(GATE_CV_PIN,LOW);                                                        // Set initial Gate to LOW;
 }
 
 
 
 void limitNoteRange() {
-    if (midi_data1 < 36) midi_data1 = 36;                                                 // If note is lower than C2 set it to C2
-    midi_data1 = midi_data1 - 36;                                                         // Subtract 36 to get into CV range
-    if (midi_data1 > 60) midi_data1 = 60;                                                 // If note is higher than C7 set it to C7
+    if (midi_data1 < LOW_NOTE) midi_data1 = LOW_NOTE;                                     // If note is lower than C2 set it to C2
+    if (midi_data1 > HIGH_NOTE) midi_data1 = HIGH_NOTE;                                   // If note is higher than C7 set it to C7
+    midi_data1 -= LOW_NOTE;                                                               // Subtract 36 to get into CV range
+}
+
+
+void limitBendRange() {
+    if (midi_data2 < 4) midi_data2 = 4;                                                   // Limit pitchbend to -60
+    if (midi_data2 > 119) midi_data2 = 119;                                               // Limit pitchbend to +60
+    midi_data2 -= 4;                                                                      // Center the pitchbend value
 }
 
 
@@ -120,10 +134,10 @@ void handleNoteOff(byte note) {
 
 void sendGate() {
     if (active_notes > 0) {
-        digitalWrite(2, HIGH);                                                            // Set Gate HIGH
+        digitalWrite(GATE_CV_PIN, HIGH);                                                  // Set Gate HIGH
     } else {
         if (active_notes > MAX_NOTES) active_notes = 0;
-        digitalWrite(2, LOW);                                                             // Set Gate LOW
+        digitalWrite(GATE_CV_PIN, LOW);                                                   // Set Gate LOW
     }
 }
 
@@ -186,9 +200,7 @@ void parseMIDI(byte midi_RX) {
                 
                 // Handle pitch bend
                 if (midi_status & 0xE0) {
-                    if (midi_data2 < 4) midi_data2 = 4;                                   // Limit pitchbend to -60
-                    if (midi_data2 > 119) midi_data2 = 119;                               // Limit pitchbend to +60
-                    midi_data2 -= 4;                                                      // Center the pitchbend value
+                    limitBendRange();
                     OCR1B = midi_data2 << 1;                                              // Output pitchbend CV
                 }
             }
