@@ -33,10 +33,10 @@
 #endif
 
 
-volatile byte midi_state = 0;
-volatile byte midi_running_status = 0;
-volatile byte midi_note;
-volatile byte midi_vel;
+volatile byte midi_message_byte = 0;
+volatile byte midi_status = 0;
+volatile byte midi_data1 = 0;
+volatile byte midi_data2 = 0;
 
 const byte MAX_NOTES = 16;
 byte active_notes = 0;
@@ -77,27 +77,27 @@ void setup() {
 
 
 
-void handleNoteOn() {
+void handleNoteOn(byte note) {
     for(byte n = 0; n < active_notes; n++) {
-        if (note_buffer[n] == midi_note) {
+        if (note_buffer[n] == note) {
             OCR1A = note_buffer[active_notes-1] << 2;
             return;
         }
     }
-    note_buffer[active_notes] = midi_note;
+    note_buffer[active_notes] = note;
     active_notes++;
     if (active_notes) OCR1A = note_buffer[active_notes-1] << 2;                         // Multiply note by 4 to set the voltage (1v/octave)
 }
 
 
-void handleNoteOff() {
+void handleNoteOff(byte note) {
     byte note_off_match = 0;
     for(byte n = 0; n < active_notes; n++) {
-        if (note_buffer[n] == midi_note) {
+        if (note_buffer[n] == note) {
             note_off_match = 1;
             if (n < (MAX_NOTES-1)) {                                                    // If end of buffer has not been reached, shift all notes to fill empty slot
                 note_buffer[n] = note_buffer[n+1];
-                note_buffer[n+1] = midi_note;
+                note_buffer[n+1] = note;
             }
         }
     }
@@ -126,56 +126,56 @@ void parseMIDI(byte midi_RX) {
 
     // Buffer is cleared when a System Common Category Status (ie, 0xF0 to 0xF7) is received.
     if ((midi_RX > 0xEF) && (midi_RX < 0xF8)) {
-        midi_running_status = 0;
-        midi_state = 0;
+        midi_status = 0;
+        midi_message_byte = 0;
         return;
     }
 
     // Buffer stores the status when a Voice Category Status (ie, 0x80 to 0xEF) is received.
     if ((midi_RX > 0x7F) && (midi_RX < 0xF0)) {
-        midi_running_status = midi_RX;
-        midi_state = 1;
+        midi_status = midi_RX;
+        midi_message_byte = 1;
         return;
     }
 
     // Any data bytes are ignored when the buffer is 0.
     if (midi_RX < 0x80) {
-        if (!midi_running_status) return;
+        if (!midi_status) return;
 
-        if (midi_state == 1) {
-            midi_note = midi_RX;
-            midi_state++;
+        if (midi_message_byte == 1) {
+            midi_data1 = midi_RX;
+            midi_message_byte = 2;
             return;
         }
 
-        if (midi_state == 2) {
-            midi_vel = midi_RX;
-            midi_state = 1;
+        if (midi_message_byte == 2) {
+            midi_data2 = midi_RX;
+            midi_message_byte = 1;
 
             // Handle notes
-            if ((midi_running_status == 0x80) || (midi_running_status == 0x90)) {
-                if (midi_note < low_note) midi_note = low_note;                         // If note is lower than C2 set it to C2
-                midi_note = midi_note - low_note;                                       // Subtract 36 to get into CV range
-                if (midi_note > high_note) midi_note = high_note;                       // If note is higher than C7 set it to C7
+            if ((midi_status == 0x80) || (midi_status == 0x90)) {
+                if (midi_data1 < low_note) midi_data1 = low_note;                       // If note is lower than C2 set it to C2
+                midi_data1 = midi_data1 - low_note;                                     // Subtract 36 to get into CV range
+                if (midi_data1 > high_note) midi_data1 = high_note;                     // If note is higher than C7 set it to C7
 
-                if ((midi_running_status == 0x90) && (midi_vel > 0x0)) {                // If note on
-                    if (active_notes < MAX_NOTES) handleNoteOn();
+                if ((midi_status == 0x90) && (midi_data2 > 0x0)) {                      // If note on
+                    if (active_notes < MAX_NOTES) handleNoteOn(midi_data1);
                 }
 
-                if ((midi_running_status == 0x80) || 
-                    ((midi_running_status == 0x90) && (midi_vel == 0x0))) {             // If note off
-                    if (active_notes) handleNoteOff();
+                if ((midi_status == 0x80) || 
+                    ((midi_status == 0x90) && (midi_data2 == 0x0))) {                   // If note off
+                    if (active_notes) handleNoteOff(midi_data1);
                 }
 
                 sendGate();
             }
             
             // Handle pitch bend
-            if (midi_running_status == 0xE0) {
-                if (midi_vel < 4) midi_vel = 4;                                         // Limit pitchbend to -60
-                if (midi_vel > 119) midi_vel = 119;                                     // Limit pitchbend to +60
-                midi_vel -= 4;                                                          // Center the pitchbend value
-                OCR1B = midi_vel << 1;                                                  // Output pitchbend CV
+            if (midi_status == 0xE0) {
+                if (midi_data2 < 4) midi_data2 = 4;                                     // Limit pitchbend to -60
+                if (midi_data2 > 119) midi_data2 = 119;                                 // Limit pitchbend to +60
+                midi_data2 -= 4;                                                        // Center the pitchbend value
+                OCR1B = midi_data2 << 1;                                                // Output pitchbend CV
             }
                         
             return;
@@ -227,5 +227,5 @@ ISR (USI_OVF_vect) {
 
 
 void loop() {
-
+    // do nothing, but wait for interrupts
 }
