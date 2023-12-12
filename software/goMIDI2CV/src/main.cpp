@@ -33,17 +33,18 @@
 #endif
 
 
-volatile byte midi_message_byte = 0;
-volatile byte midi_status = 0;
-volatile byte midi_data1 = 0;
-volatile byte midi_data2 = 0;
+volatile uint8_t midi_message_byte = 0;
+volatile byte midi_status = 0x0;
+volatile byte midi_channel = 0x0;
+volatile byte midi_data1 = 0x0;
+volatile byte midi_data2 = 0x0;
 
-const byte MAX_NOTES = 16;
-byte active_notes = 0;
+const bool MIDI_OMNI = true;                                                              // Set true to ignore filter, or false to use a single midi channel
+const byte MIDI_CHANNEL_FILTER = 0x15;                                                    // MIDI channel 16
+
+const uint8_t MAX_NOTES = 16;                                                             // Set buffer and gate "polyphony" limit
 byte note_buffer[MAX_NOTES] = {0};
-
-byte high_note = 60;
-byte low_note = 36;
+uint8_t active_notes = 0;                                                                 // Gate will be open while any keys are pressed (notes active)
 
 
 
@@ -52,33 +53,40 @@ void setup() {
     PLLCSR = 1 << PCKE | 1 << PLLE;
 
     // Setup the USI
-    USICR = 0;                                                                          // Disable USI.
-    GIFR = 1 << PCIF;                                                                   // Clear pin change interrupt flag.
-    GIMSK |= 1 << PCIE;                                                                 // Enable pin change interrupts
-    PCMSK |= 1 << PCINT0;                                                               // Enable pin change on pin 0
+    USICR = 0;                                                                            // Disable USI.
+    GIFR = 1 << PCIF;                                                                     // Clear pin change interrupt flag.
+    GIMSK |= 1 << PCIE;                                                                   // Enable pin change interrupts
+    PCMSK |= 1 << PCINT0;                                                                 // Enable pin change on pin 0
 
     // Set up Timer/Counter1 for PWM output
-    TIMSK = 0;                                                                          // Timer interrupts OFF
-    TCCR1 = 1 << PWM1A | 2 << COM1A0 | 1 << CS10;                                       // PWM A, clear on match, 1:1 prescale
-    OCR1A = 0;                                                                          // Set initial Pitch to C2
-    OCR1C = 239;                                                                        // Set count to semi tones
+    TIMSK = 0;                                                                            // Timer interrupts OFF
+    TCCR1 = 1 << PWM1A | 2 << COM1A0 | 1 << CS10;                                         // PWM A, clear on match, 1:1 prescale
+    OCR1A = 0;                                                                            // Set initial Pitch to C2
+    OCR1C = 239;                                                                          // Set count to semi tones
 
     GTCCR = 0;
-    GTCCR = 1 << PWM1B | 2 << COM1B0;                                                   // PWM B, clear on match 
+    GTCCR = 1 << PWM1B | 2 << COM1B0;                                                     // PWM B, clear on match 
 
     // Setup GPIO
-    pinMode(0, INPUT);                                                                  // Enable USI input pin
-    pinMode(1, OUTPUT);                                                                 // Enable PWM output pin
-    pinMode(2, OUTPUT);                                                                 // Enable Gate output pin
-    pinMode(4, OUTPUT);                                                                 // Enable Pitchbend PWM output pin
+    pinMode(0, INPUT);                                                                    // Enable USI input pin
+    pinMode(1, OUTPUT);                                                                   // Enable PWM output pin
+    pinMode(2, OUTPUT);                                                                   // Enable Gate output pin
+    pinMode(4, OUTPUT);                                                                   // Enable Pitchbend PWM output pin
 
-    digitalWrite(2,LOW);                                                                // Set initial Gate to LOW;
+    digitalWrite(2,LOW);                                                                  // Set initial Gate to LOW;
 }
 
 
 
+void limitNoteRange() {
+    if (midi_data1 < 36) midi_data1 = 36;                                                 // If note is lower than C2 set it to C2
+    midi_data1 = midi_data1 - 36;                                                         // Subtract 36 to get into CV range
+    if (midi_data1 > 60) midi_data1 = 60;                                                 // If note is higher than C7 set it to C7
+}
+
+
 void handleNoteOn(byte note) {
-    for(byte n = 0; n < active_notes; n++) {
+    for(byte n = 0; n < active_notes; n++) {                                              // If note is already in the buffer, play it, but don't add it again
         if (note_buffer[n] == note) {
             OCR1A = note_buffer[active_notes-1] << 2;
             return;
@@ -86,36 +94,36 @@ void handleNoteOn(byte note) {
     }
     note_buffer[active_notes] = note;
     active_notes++;
-    if (active_notes) OCR1A = note_buffer[active_notes-1] << 2;                         // Multiply note by 4 to set the voltage (1v/octave)
+    if (active_notes) OCR1A = note_buffer[active_notes-1] << 2;                           // Multiply note by 4 to set the voltage (1v/octave)
 }
 
 
 void handleNoteOff(byte note) {
-    byte note_off_match = 0;
-    for(byte n = 0; n < active_notes; n++) {
+    bool note_off_match = false;
+    for(byte n = 0; n < active_notes; n++) {                                              // Check buffer to see if note is active
         if (note_buffer[n] == note) {
-            note_off_match = 1;
-            if (n < (MAX_NOTES-1)) {                                                    // If end of buffer has not been reached, shift all notes to fill empty slot
+            note_off_match = true;
+            if (n < (MAX_NOTES-1)) {                                                      // If note is removed from middle of buffer, shift all notes to prevent empty slots
                 note_buffer[n] = note_buffer[n+1];
                 note_buffer[n+1] = note;
             }
         }
     }
     if (note_off_match) {
-        note_off_match = 0;
+        note_off_match = false;
         active_notes--;
-        note_buffer[active_notes+1] = 0;
-        if (active_notes) OCR1A = note_buffer[active_notes-1] << 2;                     // Multiply note by 4 to set the voltage (1v/octave)
+        note_buffer[active_notes+1] = 0;                                                  // Remove requested note and play next in buffer
+        if (active_notes) OCR1A = note_buffer[active_notes-1] << 2;                       // Multiply note by 4 to set the voltage (1v/octave)
     }
 }
 
 
 void sendGate() {
     if (active_notes > 0) {
-        digitalWrite(2, HIGH);                                                          // Set Gate HIGH
+        digitalWrite(2, HIGH);                                                            // Set Gate HIGH
     } else {
         if (active_notes > MAX_NOTES) active_notes = 0;
-        digitalWrite(2, LOW);                                                           // Set Gate LOW
+        digitalWrite(2, LOW);                                                             // Set Gate LOW
     }
 }
 
@@ -126,7 +134,8 @@ void parseMIDI(byte midi_RX) {
 
     // Buffer is cleared when a System Common Category Status (ie, 0xF0 to 0xF7) is received.
     if ((midi_RX > 0xEF) && (midi_RX < 0xF8)) {
-        midi_status = 0;
+        midi_status = 0x0;
+        midi_channel = 0x0;
         midi_message_byte = 0;
         return;
     }
@@ -134,6 +143,7 @@ void parseMIDI(byte midi_RX) {
     // Buffer stores the status when a Voice Category Status (ie, 0x80 to 0xEF) is received.
     if ((midi_RX > 0x7F) && (midi_RX < 0xF0)) {
         midi_status = midi_RX;
+        midi_channel = midi_status & 0x0F;
         midi_message_byte = 1;
         return;
     }
@@ -152,32 +162,36 @@ void parseMIDI(byte midi_RX) {
             midi_data2 = midi_RX;
             midi_message_byte = 1;
 
-            // Handle notes
-            if ((midi_status == 0x80) || (midi_status == 0x90)) {
-                if (midi_data1 < low_note) midi_data1 = low_note;                       // If note is lower than C2 set it to C2
-                midi_data1 = midi_data1 - low_note;                                     // Subtract 36 to get into CV range
-                if (midi_data1 > high_note) midi_data1 = high_note;                     // If note is higher than C7 set it to C7
+            if ((midi_channel == MIDI_CHANNEL_FILTER) || MIDI_OMNI) {
+                // Handle notes
+                if ((midi_status & 0x80) || (midi_status & 0x90)) {
+                    limitNoteRange();
 
-                if ((midi_status == 0x90) && (midi_data2 > 0x0)) {                      // If note on
-                    if (active_notes < MAX_NOTES) handleNoteOn(midi_data1);
+                    if ((midi_status & 0x90) && (midi_data2 > 0x0)) {                     // If note on
+                        if (active_notes < MAX_NOTES) handleNoteOn(midi_data1);
+                    }
+
+                    if ((midi_status & 0x80) || 
+                        ((midi_status & 0x90) && (midi_data2 == 0x0))) {                  // If note off
+                        if (active_notes) handleNoteOff(midi_data1);
+                    }
+
+                    sendGate();
                 }
 
-                if ((midi_status == 0x80) || 
-                    ((midi_status == 0x90) && (midi_data2 == 0x0))) {                   // If note off
-                    if (active_notes) handleNoteOff(midi_data1);
+                // Handle control change
+                if (midi_status & 0xB0) {
+                    // for future use
                 }
-
-                sendGate();
+                
+                // Handle pitch bend
+                if (midi_status & 0xE0) {
+                    if (midi_data2 < 4) midi_data2 = 4;                                   // Limit pitchbend to -60
+                    if (midi_data2 > 119) midi_data2 = 119;                               // Limit pitchbend to +60
+                    midi_data2 -= 4;                                                      // Center the pitchbend value
+                    OCR1B = midi_data2 << 1;                                              // Output pitchbend CV
+                }
             }
-            
-            // Handle pitch bend
-            if (midi_status == 0xE0) {
-                if (midi_data2 < 4) midi_data2 = 4;                                     // Limit pitchbend to -60
-                if (midi_data2 > 119) midi_data2 = 119;                                 // Limit pitchbend to +60
-                midi_data2 -= 4;                                                        // Center the pitchbend value
-                OCR1B = midi_data2 << 1;                                                // Output pitchbend CV
-            }
-                        
             return;
         }
     }
@@ -186,35 +200,35 @@ void parseMIDI(byte midi_RX) {
 
 
 ISR (PCINT0_vect) {
-    if (!(PINB & 1 << PINB0)) {                                                         // Ignore if DI is high
-        GIMSK &= ~(1 << PCIE);                                                          // Disable pin change interrupts
-        TCCR0A = 2 << WGM00;                                                            // CTC mode
-        TCCR0B = 0 << WGM02 | 2 << CS00;                                                // Set prescaler to /8
-        TCNT0 = 0;                                                                      // Count up from 0
-        OCR0A = 31;                                                                     // Delay (31+1)*8 cycles
-        TIFR |= 1 << OCF0A;                                                             // Clear output compare flag
-        TIMSK |= 1 << OCIE0A;                                                           // Enable output compare interrupt
+    if (!(PINB & 1 << PINB0)) {                                                           // Ignore if DI is high
+        GIMSK &= ~(1 << PCIE);                                                            // Disable pin change interrupts
+        TCCR0A = 2 << WGM00;                                                              // CTC mode
+        TCCR0B = 0 << WGM02 | 2 << CS00;                                                  // Set prescaler to /8
+        TCNT0 = 0;                                                                        // Count up from 0
+        OCR0A = 31;                                                                       // Delay (31+1)*8 cycles
+        TIFR |= 1 << OCF0A;                                                               // Clear output compare flag
+        TIMSK |= 1 << OCIE0A;                                                             // Enable output compare interrupt
     }
 }
 
 
 ISR (TIMER0_COMPA_vect) {
-    TIMSK &= ~(1 << OCIE0A);                                                            // Disable COMPA interrupt
-    TCNT0 = 0;                                                                          // Count up from 0
-    OCR0A = 63;                                                                         // Shift every (63+1)*8 cycles 32uS
+    TIMSK &= ~(1 << OCIE0A);                                                              // Disable COMPA interrupt
+    TCNT0 = 0;                                                                            // Count up from 0
+    OCR0A = 63;                                                                           // Shift every (63+1)*8 cycles 32uS
 
     // Enable USI OVF interrupt, and select Timer0 compare match as USI Clock source:
     USICR = 1 << USIOIE | 0 << USIWM0 | 1 << USICS0;
-    USISR = 1 << USIOIF | 8;                                                            // Clear USI OVF flag, and set counter
+    USISR = 1 << USIOIF | 8;                                                              // Clear USI OVF flag, and set counter
 }
 
 
 ISR (USI_OVF_vect) {
     byte midi_RX;
-    USICR = 0;                                                                          // Disable USI
+    USICR = 0;                                                                            // Disable USI
     midi_RX = USIDR;
-    GIFR = 1 << PCIF;                                                                   // Clear pin change interrupt flag.
-    GIMSK |= 1 << PCIE;                                                                 // Enable pin change interrupts again
+    GIFR = 1 << PCIF;                                                                     // Clear pin change interrupt flag.
+    GIMSK |= 1 << PCIE;                                                                   // Enable pin change interrupts again
 
     // Wrong bit order so swap it:
     midi_RX = ((midi_RX >> 1) & 0x55) | ((midi_RX << 1) & 0xaa);
