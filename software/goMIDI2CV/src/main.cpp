@@ -38,20 +38,20 @@ const int GATE_CV_PIN = 2;
 const int BEND_CV_PIN = 4;
 
 volatile uint8_t midi_message_byte = 0;
-volatile byte midi_status = 0x0;
-volatile byte midi_channel = 0x0;
-volatile byte midi_data1 = 0x0;
-volatile byte midi_data2 = 0x0;
+volatile uint8_t midi_status = 0x0;
+volatile uint8_t midi_channel = 0x0;
+volatile uint8_t midi_data1 = 0x0;
+volatile uint8_t midi_data2 = 0x0;
 
 const bool MIDI_OMNI = true;                                                              // Set true to ignore filter, or false to use a single midi channel
-const byte MIDI_CHANNEL_FILTER = 0x15;                                                    // MIDI channel 16
+const uint8_t MIDI_CHANNEL_FILTER = 0x1;                                                  // MIDI channel 16
 
-const byte LOW_NOTE = 36;                                                                 // Any note lower than C2 will be interpreted as C2
-const byte HIGH_NOTE = 96;                                                                // Any note higher than C7 will be interpreted as C7
+const uint8_t LOW_NOTE = 36;                                                              // Any note lower than C2 will be interpreted as C2
+const uint8_t HIGH_NOTE = 96;                                                             // Any note higher than C7 will be interpreted as C7
 
 const uint8_t MAX_NOTES = 16;                                                             // Set buffer and gate "polyphony" limit
-byte note_buffer[MAX_NOTES] = {0};
-uint8_t active_notes = 0;                                                                 // Gate will be open while any keys are pressed (any notes active)
+volatile uint8_t note_buffer[MAX_NOTES] = {0};
+volatile uint8_t active_notes = 0;                                                        // Gate will be open while any keys are pressed (any notes active)
 
 
 
@@ -99,27 +99,27 @@ void limitBendRange() {
 }
 
 
-void handleNoteOn(byte note) {
-    for(byte n = 0; n < active_notes; n++) {                                              // If note is already in the buffer, play it, but don't add it again
-        if (note_buffer[n] == note) {
+void handleNoteOn() {
+    for(uint8_t n = 0; n < active_notes; n++) {                                           // If note is already in the buffer, play it, but don't add it again
+        if (note_buffer[n] == midi_data1) {
             OCR1A = note_buffer[active_notes-1] << 2;
             return;
         }
     }
-    note_buffer[active_notes] = note;
+    note_buffer[active_notes] = midi_data1;
     active_notes++;
     if (active_notes) OCR1A = note_buffer[active_notes-1] << 2;                           // Multiply note by 4 to set the voltage (1v/octave)
 }
 
 
-void handleNoteOff(byte note) {
+void handleNoteOff() {
     bool note_off_match = false;
-    for(byte n = 0; n < active_notes; n++) {                                              // Check buffer to see if note is active
-        if (note_buffer[n] == note) {
+    for(uint8_t n = 0; n < active_notes; n++) {                                           // Check buffer to see if note is active
+        if (note_buffer[n] == midi_data1) {
             note_off_match = true;
             if (n < (MAX_NOTES-1)) {                                                      // If note is removed from middle of buffer, shift all notes to prevent empty slots
                 note_buffer[n] = note_buffer[n+1];
-                note_buffer[n+1] = note;
+                note_buffer[n+1] = midi_data1;
             }
         }
     }
@@ -136,13 +136,12 @@ void sendGate() {
     if (active_notes > 0) {
         digitalWrite(GATE_CV_PIN, HIGH);                                                  // Set Gate HIGH
     } else {
-        if (active_notes > MAX_NOTES) active_notes = 0;
         digitalWrite(GATE_CV_PIN, LOW);                                                   // Set Gate LOW
     }
 }
 
 
-void parseMIDI(byte midi_RX) {
+void parseMIDI(uint8_t midi_RX) {
     // Nothing is done to the buffer when a RealTime Category message is received.
     if (midi_RX > 0xF7) return;
 
@@ -178,28 +177,28 @@ void parseMIDI(byte midi_RX) {
 
             if ((midi_channel == MIDI_CHANNEL_FILTER) || MIDI_OMNI) {
                 // Handle notes
-                if ((midi_status & 0x80) || (midi_status & 0x90)) {
+                if ((midi_status == 0x80) || (midi_status == 0x90)) {
                     limitNoteRange();
 
-                    if ((midi_status & 0x90) && (midi_data2 > 0x0)) {                     // If note on
-                        if (active_notes < MAX_NOTES) handleNoteOn(midi_data1);
+                    if ((midi_status == 0x90) && (midi_data2 > 0x0)) {                    // If note on
+                        if (active_notes < MAX_NOTES) handleNoteOn();
                     }
 
-                    if ((midi_status & 0x80) || 
-                        ((midi_status & 0x90) && (midi_data2 == 0x0))) {                  // If note off
-                        if (active_notes) handleNoteOff(midi_data1);
+                    if ((midi_status == 0x80) || 
+                        ((midi_status == 0x90) && (midi_data2 == 0x0))) {                 // If note off
+                        if (active_notes > 0) handleNoteOff();
                     }
 
                     sendGate();
                 }
 
                 // Handle control change
-                if (midi_status & 0xB0) {
+                if (midi_status == 0xB0) {
                     // for future use
                 }
                 
                 // Handle pitch bend
-                if (midi_status & 0xE0) {
+                if (midi_status == 0xE0) {
                     limitBendRange();
                     OCR1B = midi_data2 << 1;                                              // Output pitchbend CV
                 }
@@ -236,16 +235,16 @@ ISR (TIMER0_COMPA_vect) {
 
 
 ISR (USI_OVF_vect) {
-    byte midi_RX;
+    uint8_t midi_RX;
     USICR = 0;                                                                            // Disable USI
     midi_RX = USIDR;
     GIFR = 1 << PCIF;                                                                     // Clear pin change interrupt flag.
     GIMSK |= 1 << PCIE;                                                                   // Enable pin change interrupts again
 
     // Wrong bit order so swap it:
-    midi_RX = ((midi_RX >> 1) & 0x55) | ((midi_RX << 1) & 0xaa);
-    midi_RX = ((midi_RX >> 2) & 0x33) | ((midi_RX << 2) & 0xcc);
-    midi_RX = ((midi_RX >> 4) & 0x0f) | ((midi_RX << 4) & 0xf0);
+    midi_RX = ((midi_RX >> 1) & 0x55) | ((midi_RX << 1) & 0xAA);
+    midi_RX = ((midi_RX >> 2) & 0x33) | ((midi_RX << 2) & 0xCC);
+    midi_RX = ((midi_RX >> 4) & 0x0F) | ((midi_RX << 4) & 0xF0);
 
     parseMIDI(midi_RX);
 }
