@@ -1,5 +1,5 @@
 # goMIDI2CV  
-This is a largely reworked version of the goMIDI2CV project by Jan Ostman.  
+This is a largely reworked version of the DIY Good Ol’ MIDI to CV project by Jan Ostman.  
 
 
 
