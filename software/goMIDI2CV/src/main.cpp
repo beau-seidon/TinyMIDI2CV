@@ -46,6 +46,8 @@ volatile uint8_t midi_data2 = 0x0;
 const bool MIDI_OMNI = true;                                                              // Set true to ignore filter, or false to use a single midi channel
 const uint8_t MIDI_CHANNEL_FILTER = 0x1;                                                  // MIDI channel 16
 
+const bool RETRIGGER = true;
+
 const uint8_t LOW_NOTE = 36;                                                              // Any note lower than C2 will be interpreted as C2
 const uint8_t HIGH_NOTE = 96;                                                             // Any note higher than C7 will be interpreted as C7
 
@@ -69,6 +71,7 @@ void setup() {
     TIMSK = 0;                                                                            // Timer interrupts OFF
     TCCR1 = 1 << PWM1A | 2 << COM1A0 | 1 << CS10;                                         // PWM A, clear on match, 1:1 prescale
     OCR1A = 0;                                                                            // Set initial Pitch to C2
+    OCR1B = 127;                                                                          // Set initial bend to center
     OCR1C = 239;                                                                          // Set count to semi tones
 
     GTCCR = 0;
@@ -93,9 +96,9 @@ void limitNoteRange() {
 
 
 void limitBendRange() {
-    if (midi_data2 < 4) midi_data2 = 4;                                                   // Limit pitchbend to -60
-    if (midi_data2 > 119) midi_data2 = 119;                                               // Limit pitchbend to +60
-    midi_data2 -= 4;                                                                      // Center the pitchbend value
+    if (midi_data2 < 4) midi_data2 = 4;                                                   // Limit pitchbend to -60 (4)
+    if (midi_data2 > 119) midi_data2 = 119;                                               // Limit pitchbend to +60 (119)
+    midi_data2 -= 4;                                                                      // Center the pitchbend value (4)
 }
 
 
@@ -108,6 +111,10 @@ void handleNoteOn() {
     }
     note_buffer[active_notes] = midi_data1;
     active_notes++;
+    if (RETRIGGER) {
+        digitalWrite(GATE_CV_PIN, LOW);
+        delayMicroseconds(32);
+    }
     if (active_notes) OCR1A = note_buffer[active_notes-1] << 2;                           // Multiply note by 4 to set the voltage (1v/octave)
 }
 
@@ -199,7 +206,7 @@ void parseMIDI(uint8_t midi_RX) {
                 
                 // Handle pitch bend
                 if (midi_status == 0xE0) {
-                    limitBendRange();
+                    // limitBendRange();
                     OCR1B = midi_data2 << 1;                                              // Output pitchbend CV
                 }
             }
