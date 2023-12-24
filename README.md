@@ -1,6 +1,20 @@
 # goMIDI2CV  
 This is a largely reworked version of the DIY Good Ol’ MIDI to CV project by Jan Ostman.  
 
+### Changes
+- Updated the schematic, which should now be suitable for creating a small Eurorack module.  It's only my second module I have built, so feel free to improve it. The .kicad_sch file is in the ./hardware directory.
+
+- Overhauled most of the code styling, and fixed the gate cv behavior. Now Gate remains high as long as any note is still held.  Also, retrigger functionality was added. Gate pin goes low very briefly, then quickly back to high, any time a new note is played while other notes are held.
+
+- A note buffer array now remembers active notes in the order they were played.  Note CV output returns to previous note value if it is still held when the most recent note is released.  Note CV output does not change when the final note is released, but the gate CV goes to 0 V. 
+
+- Fixed the way the code responds to midi messages and handles running status. Pitch bend is now functional.  Broke out handlers for different types of messages like noteOn/Off, bend, gate, etc. into their own defined functions.
+
+- After much fiddling with different summing circuits and testing with my synth, I determined that a seperate output jack for pitchbend is more convenient for me.  This is shown in the new schematic.
+
+- MIDI channel filtering was added but it didn't work right so I reverted before the latest commit.  I will figure out how to properly implement it some time soon. Unless you do it first! 
+
+- The barest bones for handling CC messages are in place as well, with not much intention for actually using them.  I suppose it would make most sense to just use CC values instead of pitch bend to control that extra CV output, if so desired. 
 
 
 ## DIY Good Ol’ MIDI to CV  
