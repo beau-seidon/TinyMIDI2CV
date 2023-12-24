@@ -1,3 +1,19 @@
 Assuming ArduinoIDE is installed, the following command will set the fuse bits correctly for goMIDI2CV, while using an Arudino Uno as an ISP programmer for the ATTiny85:
 
 "C:\Program Files (x86)\Arduino\hardware\tools\avr/bin/avrdude" -C "C:\Program Files (x86)\Arduino\hardware\tools\avr/etc/avrdude.conf" -v -p attiny85 -c stk500v1 -P COM4 -b 19200 -e -U lfuse:w:0xe1:m -U hfuse:w:0xdd:m -U efuse:w:0xfe:m
+
+
+
+If using VSCode & PlatformIO, make sure your programmer is configured correctly in platformio.ini and add the following lines:
+
+; ATTiny85 16Mhz
+board_fuses.lfuse = 0xE1
+board_fuses.hfuse = 0xDD
+board_fuses.efuse = 0xFE
+
+
+Then in the menu bar up top, click: 
+	Terminal > Run Task
+
+and run the task: 
+	PlatformIO: Set Fuses
