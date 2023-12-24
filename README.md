@@ -2,7 +2,7 @@
 This is a largely reworked version of the DIY Good Ol’ MIDI to CV project by Jan Ostman.  
 
 ### Changes
-- Updated the schematic, which should now be suitable for creating a small Eurorack module.  It's only my second module I have built, so feel free to improve it. The .kicad_sch file is in the [./hardware/goMIDI2CV](./hardware/goMIDI2CV) directory.
+- Updated the [schematic](./hardware/goMIDI2CV.pdf), which should now be suitable for creating a small Eurorack module.  It's only my second module I have built, so feel free to improve it.
 
 - Overhauled most of the code styling, and fixed the gate cv behavior. Now Gate remains high as long as any note is still held.  Also, retrigger functionality was added. Gate pin goes low very briefly, then quickly back to high, any time a new note is played while other notes are held.
 
