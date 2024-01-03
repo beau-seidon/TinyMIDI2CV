@@ -4,26 +4,26 @@ This is a largely reworked version of the DIY Good Ol’ MIDI to CV project by J
 ### Changes
 - Updated the [schematic](./hardware/goMIDI2CV.pdf), which should now be suitable for creating a small Eurorack module.  It's only my second module I have built, so feel free to improve it.
 
-- Overhauled most of the code styling, and fixed the gate cv behavior. Now Gate remains high as long as any note is still held.  Also, retrigger functionality was added. Gate pin goes low very briefly, then quickly back to high, any time a new note is played while other notes are held.
+- Overhauled most of the code styling, and fixed the Gate CV behavior. Now Gate remains High as long as any note is still held.  Also, retrigger functionality was added. Gate pin goes Low very briefly, then quickly back to High, any time a new note is played while other notes are held.
 
-- A note buffer array now remembers active notes in the order they were played.  Note CV output returns to previous note value if it is still held when the most recent note is released.  Note CV output does not change when the final note is released, but the gate CV goes to 0 V. 
+- A note buffer array now remembers active notes in the order they were played.  Note CV output returns to previous note value if it is still held when the most recent note is released.  Note CV output does not change when the final note is released, but the Gate CV goes Low. 
 
-- Fixed the way the code responds to midi messages and handles running status. Pitch bend is now functional.  Broke out handlers for different types of messages like noteOn/Off, bend, gate, etc. into their own defined functions.
+- Fixed the way the code responds to MIDI messages and handles running status. Pitch bend is now functional.  Broke out handlers for different types of messages like note on/off, bend, gate, etc. into their own defined functions.
 
-- After much fiddling with different summing circuits and testing with my synth, I determined that a seperate output jack for pitchbend is more convenient for me.  This is shown in the new schematic.
+- After much fiddling with different summing circuits and testing with my synth, I determined that a seperate output jack for pitchbend is more convenient for me than coupling it to the Note CV.  This is shown in the new schematic. If you find a nicer way to do it, let me know.
 
 - MIDI channel filtering was added but it didn't work right so I reverted before the latest commit.  I will figure out how to properly implement it some time soon. Unless you do it first! 
 
-- The barest bones for handling CC messages are in place as well, with not much intention for actually using them.  I suppose it would make most sense to just use CC values instead of pitch bend to control that extra CV output, if so desired. 
+- The barest bones for handling MIDI CC messages are in place as well, with not much intention for actually using them.  I suppose it would make most sense to just use CC values instead of pitch bend to control that extra CV output, if so desired. 
 
 ### Programming
 I program my ATTiny85 using an Arudino Uno as an ISP programmer, following instructions shown here and other places:
 [https://circuitdigest.com/microcontroller-projects/programming-attiny85-microcontroller-ic-using-arduino]
 
-You can paste the contents of [main.cpp](./software/goMIDI2CV/src/main.cpp) into the ArduinoIDE and directly follow the instructions on that site to load it.
-Or if you prefer VSCode with PlatformIO, you can use the settings in this repo's [platform.ini](./software/goMIDI2CV/platform.ini) file to program the ATTiny85 using an Uno as an ISP.
+You can paste the contents of [main.cpp](./software/goMIDI2CV/src/main.cpp) into the ArduinoIDE and directly follow the instructions on that site to load it to your chip.
+Or if you prefer VSCode with PlatformIO, you can use the settings in this repo's [platform.ini](./software/goMIDI2CV/platform.ini) file to program the ATTiny85 using an Uno as an ISP. You may need to change some of those parameters if you use a different programmer.
 
-Notice, that site doesn't explain how to set the fuse bits before flashing the firmware, but I included a [text file](./software/attiny85%20fuse%20settings.txt) with brief instructions on this, and the relevant terminal commands.
+Notice, that site doesn't explain how to set the fuse bits before flashing the firmware, but I included a [text file](./software/attiny85%20fuse%20settings.txt) with brief instructions on this, and the relevant terminal commands (for Windows).
 
 
 
