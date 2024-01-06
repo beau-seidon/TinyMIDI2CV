@@ -3,8 +3,9 @@
 // The goMIDI2CV interface
 // http://blog.dspsynth.eu/diy-good-ol-midi-to-cv/
 // Copyright 2019 DSP Synthesizers Sweden.
+// Changes Copyright 2023-2024 Beau Sterling, Aether Soundlab, USA
 //
-// Author: Jan Ostman; edited by Beau Sterling
+// Authors: Jan Ostman and Beau Sterling
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -17,6 +18,7 @@
 
 
 // Set Fuses to E1 DD FE for PLLCLK 16MHz
+
 
 
 #include <Arduino.h>
@@ -43,17 +45,21 @@ volatile uint8_t midi_channel = 0x0;
 volatile uint8_t midi_data1 = 0x0;
 volatile uint8_t midi_data2 = 0x0;
 
-const bool MIDI_OMNI = true;                                                              // Set true to ignore filter, or false to use a single midi channel
-const uint8_t MIDI_CHANNEL_FILTER = 0x1;                                                  // MIDI channel 16
+const bool MIDI_OMNI = false;                                                             // Set true to ignore filter, or false to use a single midi channel
+const uint8_t MIDI_CHANNEL_FILTER = 0xF;                                                  // MIDI channel 16
 
 const bool RETRIGGER = true;
 
 const uint8_t LOW_NOTE = 36;                                                              // Any note lower than C2 will be interpreted as C2
 const uint8_t HIGH_NOTE = 96;                                                             // Any note higher than C7 will be interpreted as C7
 
-const uint8_t MAX_NOTES = 16;                                                             // Set buffer and gate "polyphony" limit
-volatile uint8_t note_buffer[MAX_NOTES] = {0};
+const uint8_t POLYPHONY_MAX = 16;                                                         // Set buffer and gate "polyphony" limit
+volatile uint8_t note_buffer[POLYPHONY_MAX] = {0};
 volatile uint8_t active_notes = 0;                                                        // Gate will be open while any keys are pressed (any notes active)
+
+const short BEND_MAX = 0x3FFF;
+const short BEND_CENTER = 0x2000;
+const short BEND_MIN = 0x0;
 
 
 
@@ -95,41 +101,49 @@ void limitNoteRange() {
 }
 
 
-void limitBendRange() {
-    if (midi_data2 < 4) midi_data2 = 4;                                                   // Limit pitchbend to -60 (4)
-    if (midi_data2 > 119) midi_data2 = 119;                                               // Limit pitchbend to +60 (119)
-    midi_data2 -= 4;                                                                      // Center the pitchbend value (4)
+
+void handleVelocity(uint8_t vel) {
+    // for future use, not tested yet
+
+    // OCR1B = vel << 1;
 }
 
 
-void handleNoteOn() {
-    for(uint8_t n = 0; n < active_notes; n++) {                                           // If note is already in the buffer, play it, but don't add it again
-        if (note_buffer[n] == midi_data1) {
+
+void handleNoteOn(uint8_t note, uint8_t vel) {
+    for (uint8_t n = 0; n < active_notes; n++) {                                          // If note is already in the buffer, play it, but don't add it again
+        if (note_buffer[n] == note) {
             OCR1A = note_buffer[active_notes-1] << 2;
             return;
         }
     }
-    note_buffer[active_notes] = midi_data1;
+
+    note_buffer[active_notes] = note;
     active_notes++;
+
     if (RETRIGGER) {
         digitalWrite(GATE_CV_PIN, LOW);
         delayMicroseconds(32);
     }
+
     if (active_notes) OCR1A = note_buffer[active_notes-1] << 2;                           // Multiply note by 4 to set the voltage (1v/octave)
 }
 
 
-void handleNoteOff() {
+
+void handleNoteOff(uint8_t note, uint8_t vel) {
     bool note_off_match = false;
-    for(uint8_t n = 0; n < active_notes; n++) {                                           // Check buffer to see if note is active
-        if (note_buffer[n] == midi_data1) {
+
+    for (uint8_t n = 0; n < active_notes; n++) {                                          // Check buffer to see if note is active
+        if (note_buffer[n] == note) {
             note_off_match = true;
-            if (n < (MAX_NOTES-1)) {                                                      // If note is removed from middle of buffer, shift all notes to prevent empty slots
+            if (n < (POLYPHONY_MAX-1)) {                                                  // If note is removed from middle of buffer, shift all notes to prevent empty slots
                 note_buffer[n] = note_buffer[n+1];
-                note_buffer[n+1] = midi_data1;
+                note_buffer[n+1] = note;
             }
         }
     }
+
     if (note_off_match) {
         note_off_match = false;
         active_notes--;
@@ -139,6 +153,7 @@ void handleNoteOff() {
 }
 
 
+
 void sendGate() {
     if (active_notes > 0) {
         digitalWrite(GATE_CV_PIN, HIGH);                                                  // Set Gate HIGH
@@ -146,6 +161,78 @@ void sendGate() {
         digitalWrite(GATE_CV_PIN, LOW);                                                   // Set Gate LOW
     }
 }
+
+
+
+void sendTrig() {
+    // for future use, not tested yet
+
+    // if (active_notes > 0) {
+    //     if(S_TRIG_MODE) {
+    //         digitalWrite(TRIG_CV_PIN, LOW);
+    //         delayMicroseconds(32);
+    //         digitalWrite(TRIG_CV_PIN, HIGH);
+    //     } else {
+    //         digitalWrite(TRIG_CV_PIN, HIGH);
+    //         delayMicroseconds(32);
+    //         digitalWrite(TRIG_CV_PIN, LOW);
+    //     }   
+    // }
+}
+
+
+
+void handleControlChange(uint8_t cc_num, uint8_t cc_value) {
+    // for future use, not tested yet
+
+    // OCR1B = cc_value << 1;
+}
+
+
+
+void handlePitchBend(uint8_t data1, uint8_t data2) {
+    unsigned short bend;
+    bend = (unsigned short)data2;                                                         // MSB
+    bend <<= 7;
+    bend |= (unsigned short)data1;                                                        // LSB
+
+    uint8_t bend_CV = map(bend, BEND_MIN, BEND_MAX, 0, 255);
+    OCR1B = bend_CV;                                                                      // Output pitchbend CV
+}
+
+
+
+void translateMIDI() {
+    if ((midi_channel == MIDI_CHANNEL_FILTER) || MIDI_OMNI) {
+        // Handle notes
+        if (((midi_status >> 4) == 0x8) || ((midi_status >> 4) == 0x9)) {
+
+            limitNoteRange();
+
+            if (((midi_status >> 4) == 0x9) && (midi_data2 > 0x0)) {
+                if (active_notes < POLYPHONY_MAX) handleNoteOn(midi_data1, midi_data2);
+            }
+
+            if (((midi_status >> 4) == 0x8) || 
+                (((midi_status >> 4) == 0x9) && (midi_data2 == 0x0))) {                   // Note on with velocity 0 is note off
+                if (active_notes > 0) handleNoteOff(midi_data1, midi_data2);
+            }
+
+            sendGate();
+        }
+
+        // Handle control change
+        if ((midi_status >> 4) == 0xB) {
+            handleControlChange(midi_data1, midi_data2);
+        }
+        
+        // Handle pitch bend
+        if ((midi_status >> 4) == 0xE) {
+            handlePitchBend(midi_data1, midi_data2);
+        }
+    }
+}
+
 
 
 void parseMIDI(uint8_t midi_RX) {
@@ -182,34 +269,8 @@ void parseMIDI(uint8_t midi_RX) {
             midi_data2 = midi_RX;
             midi_message_byte = 1;
 
-            if ((midi_channel == MIDI_CHANNEL_FILTER) || MIDI_OMNI) {
-                // Handle notes
-                if ((midi_status == 0x80) || (midi_status == 0x90)) {
-                    limitNoteRange();
-
-                    if ((midi_status == 0x90) && (midi_data2 > 0x0)) {                    // If note on
-                        if (active_notes < MAX_NOTES) handleNoteOn();
-                    }
-
-                    if ((midi_status == 0x80) || 
-                        ((midi_status == 0x90) && (midi_data2 == 0x0))) {                 // If note off
-                        if (active_notes > 0) handleNoteOff();
-                    }
-
-                    sendGate();
-                }
-
-                // Handle control change
-                if (midi_status == 0xB0) {
-                    // for future use
-                }
-                
-                // Handle pitch bend
-                if (midi_status == 0xE0) {
-                    // limitBendRange();
-                    OCR1B = midi_data2 << 1;                                              // Output pitchbend CV
-                }
-            }
+            translateMIDI();
+            
             return;
         }
     }
@@ -230,6 +291,7 @@ ISR (PCINT0_vect) {
 }
 
 
+
 ISR (TIMER0_COMPA_vect) {
     TIMSK &= ~(1 << OCIE0A);                                                              // Disable COMPA interrupt
     TCNT0 = 0;                                                                            // Count up from 0
@@ -239,6 +301,7 @@ ISR (TIMER0_COMPA_vect) {
     USICR = 1 << USIOIE | 0 << USIWM0 | 1 << USICS0;
     USISR = 1 << USIOIF | 8;                                                              // Clear USI OVF flag, and set counter
 }
+
 
 
 ISR (USI_OVF_vect) {
