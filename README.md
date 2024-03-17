@@ -1,5 +1,5 @@
 # goMIDI2CV  
-This is a largely reworked version of the DIY Good Ol’ MIDI to CV project by Jan Ostman.  
+This is a reworked and expanded version of the DIY Good Ol’ MIDI to CV project by Jan Ostman.  
 This circuit can be embedded in other projects, or built standalone, like as a eurorack module.
 
 <p float="left">
