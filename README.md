@@ -1,5 +1,12 @@
 # goMIDI2CV  
 This is a largely reworked version of the DIY Good Ol’ MIDI to CV project by Jan Ostman.  
+This circuit can be embedded in other projects, or built standalone, like as a eurorack module.
+
+<p float="left">
+  <img src="https://github.com/beau-seidon/goMIDI2CV/blob/main/other%20resources/module_front.jpg" width=33% /> 
+  <img src="https://github.com/beau-seidon/goMIDI2CV/blob/main/other%20resources/module_back.jpg" width=33% />
+</p>
+
 
 ### Changes
 - Added latest (2024-Jan-06) build's firmware.hex file, and created a Release.
