@@ -10,8 +10,6 @@ This circuit can be embedded in other projects, or built standalone, like as a e
 
 ### Changes
 - Original code in .ino file has been moved to jo_original branch to simplify the repo
-
-- Added latest (2024-Jan-06) build's firmware.hex file, and created a Release.
   
 - MIDI channel filtering is fixed in latest commmit, and default is channel 16. Can change channel or enable Omni in source and recompile if desired.
 
