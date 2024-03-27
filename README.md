@@ -6,7 +6,7 @@ This is a backup of the DIY Good Ol’ MIDI to CV project by Jan Ostman. See mai
 I program my ATTiny85 using an Arudino Uno as an ISP programmer, following instructions shown here and other places:
 [https://circuitdigest.com/microcontroller-projects/programming-attiny85-microcontroller-ic-using-arduino]
 
-You can open [main.cpp](./software/goMIDI2CV/goMIDI2CV.ino) in the ArduinoIDE and directly follow the instructions on that site to load it to your chip.
+You can open [goMIDI2CV.ino](./software/goMIDI2CV/goMIDI2CV.ino) in the ArduinoIDE and directly follow the instructions on that site to load it to your chip.
 Or if you prefer VSCode with PlatformIO, you can use the settings in this repo's [platform.ini](./software/goMIDI2CV/platform.ini) file to program the ATTiny85 using an Uno as an ISP. You may need to change some of those parameters if you use a different programmer.
 
 Notice, that site doesn't explain how to set the fuse bits before flashing the firmware, but I included a [text file](./software/attiny85%20fuse%20settings.txt) with brief instructions on this, and the relevant terminal commands (for Windows).
