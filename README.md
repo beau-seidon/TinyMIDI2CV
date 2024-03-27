@@ -23,7 +23,7 @@ This circuit can be embedded in other projects, or built standalone, like as a e
 
 - After much fiddling with different summing circuits and testing with my synth, I determined that a seperate output jack for pitchbend is more convenient for me than coupling it to the Note CV.  This is shown in the new schematic. If you find a nicer way to do it, let me know.
 
-- The barest bones for handling MIDI CC and velocity, and sending CV Trigger output are in place as well, with not much intention for actually using them.
+- The barest bones for handling MIDI CC and velocity, and sending CV Trigger output are in place as well. Further development on those will be started soon in another branch.
 
 ### Programming
 I program my ATTiny85 using an Arudino Uno as an ISP programmer, following instructions shown here and other places:
