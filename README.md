@@ -1,23 +1,25 @@
-# goMIDI2CV  
-This is a reworked and expanded version of the DIY Good Ol’ MIDI to CV project by Jan Ostman.  
+# goMIDI2CV
+This is a reworked and expanded version of the DIY Good Ol’ MIDI to CV project by Jan Ostman.
 This circuit can be embedded in other projects, or built standalone, like as a eurorack module.
 
 <p float="left">
-  <img src="https://github.com/beau-seidon/goMIDI2CV/blob/main/other%20resources/module_front.jpg" width=33% /> 
-  <img src="https://github.com/beau-seidon/goMIDI2CV/blob/main/other%20resources/module_back.jpg" width=33% />
+  <img src="./other%20resources/module_front.jpg" width=33% />
+  <img src="./other%20resources/module_back.jpg" width=33% />
 </p>
 
 
 ### Changes
+- Further improvements to note buffer / gate behavior. Added MIDI CC legato (68) handler to enable/disable gate retrigger. MIDI filter default channel is now 1. More function compartmentalization for readability. Added alternative methods to control CV2 output, selectable via MIDI Program Change. More CV2 functions to come soon.
+
 - Original code (in goMIDI2CV.ino file) has been moved to jo_original branch to simplify the repo
-  
+
 - MIDI channel filtering is fixed in latest commmit, and default is channel 16. Can change channel or enable Omni in source and recompile if desired.
 
 - Updated the [schematic](./hardware/goMIDI2CV.pdf), which should now be suitable for creating a small Eurorack module.  It's only my second module I have built, so feel free to improve it.
 
 -  Overhauled most of the code styling, and fixed the Gate CV behavior. Now Gate remains High as long as any note is still held.  Also, retrigger functionality was added. Gate pin goes Low very briefly, then quickly back to High, any time a new note is played while other notes are held.
 
-- A note buffer array now remembers active notes in the order they were played.  Note CV output returns to previous note value if it is still held when the most recent note is released.  Note CV output does not change when the final note is released, but the Gate CV goes Low. 
+- A note buffer array now remembers active notes in the order they were played.  Note CV output returns to previous note value if it is still held when the most recent note is released.  Note CV output does not change when the final note is released, but the Gate CV goes Low.
 
 - Fixed the way the code responds to MIDI messages and handles running status. Pitch bend is now functional.  Broke out handlers for different types of messages like note on/off, bend, gate, etc. into their own defined functions.
 
@@ -37,9 +39,9 @@ Notice, that site doesn't explain how to set the fuse bits before flashing the f
 
 
 
-## DIY Good Ol’ MIDI to CV  
+## DIY Good Ol’ MIDI to CV
 
-From original project: [https://www.hackster.io/janost/diy-good-ol-midi-to-cv-d0e2bf]  
+From original project: [https://www.hackster.io/janost/diy-good-ol-midi-to-cv-d0e2bf]
 
 The goMIDI2CV takes TTL-MIDI input and outputs a 1V/Octave CV and a gate signal.
 
@@ -83,21 +85,21 @@ The ATtiny does not have a DAC so we create one using PWM.
 
 And its also lacking a UART but we can use the USI component for that one.
 
-    // (*) All in the spirit of open-source and open-hardware 
-    // Janost 2019 Sweden  
+    // (*) All in the spirit of open-source and open-hardware
+    // Janost 2019 Sweden
     // DIY Good Ol' MIDI2CV on the ATtiny85
     // http://blog.dspsynth.eu/diy-good-ol-midi-to-cv/
-    // Copyright 2019 DSP Synthesizers Sweden. 
-    // 
-    // Author: Jan Ostman 
-    // 
-    // This program is free software: you can redistribute it and/or modify 
-    // it under the terms of the GNU General Public License as published by 
-    // the Free Software Foundation, either version 3 of the License, or 
-    // (at your option) any later version. 
-    // This program is distributed in the hope that it will be useful, 
-    // but WITHOUT ANY WARRANTY; without even the implied warranty of 
-    // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the 
+    // Copyright 2019 DSP Synthesizers Sweden.
+    //
+    // Author: Jan Ostman
+    //
+    // This program is free software: you can redistribute it and/or modify
+    // it under the terms of the GNU General Public License as published by
+    // the Free Software Foundation, either version 3 of the License, or
+    // (at your option) any later version.
+    // This program is distributed in the hope that it will be useful,
+    // but WITHOUT ANY WARRANTY; without even the implied warranty of
+    // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
     // GNU General Public License for more details.
 
 First we need to setup the chip. This code takes care of setting up the PWM and USI.
@@ -110,26 +112,26 @@ The fuses are important as we want to run the Tiny on a internal 16MHz clock.
     volatile uint8_t MIDIRUNNINGSTATUS=0;
     volatile uint8_t MIDINOTE;
     volatile uint8_t MIDIVEL;
-      
+
     void setup() {
       // Enable 64 MHz PLL and use as source for Timer1
-      PLLCSR = 1<<PCKE | 1<<PLLE;  
-       
+      PLLCSR = 1<<PCKE | 1<<PLLE;
+
       // Set up Timer/Counter1 for PWM output
       TIMSK = 0;                     // Timer interrupts OFF
       TCCR1 = 1<<PWM1A | 2<<COM1A0 | 1<<CS10; // PWM A, clear on match, 1:1 prescale
-      
+
       // Setup GPIO
       pinMode(1, OUTPUT); // Enable PWM output pin
       pinMode(0, INPUT);  // Enable USI input pin
       pinMode(2, OUTPUT); // Enable Gate output pin
-      
+
       //Setup the USI
       USICR = 0;          // Disable USI.
       GIFR = 1<<PCIF;     // Clear pin change interrupt flag.
       GIMSK |= 1<<PCIE;   // Enable pin change interrupts
       PCMSK |= 1<<PCINT0; // Enable pin change on pin 0
-      
+
       //Set scale of Timer1
       GTCCR = 0;
       OCR1C = 239; //Set count to semi tones
@@ -171,20 +173,20 @@ The compare match interrupt occurs in the middle of the start bit. In the compar
 
 Note that we set the Wire Mode to 0 with 0<<USIWM0. This ensures that the output of the USI shift register won’t affect the CV output pin, PB1.
 
-When 8 bits have been shifted in the USI overflow interrupt occurs. The interrupt service routine disables the USI, reads the USI shift register, and enables the pin change interrupt ready for the next byte.    
+When 8 bits have been shifted in the USI overflow interrupt occurs. The interrupt service routine disables the USI, reads the USI shift register, and enables the pin change interrupt ready for the next byte.
 
     ISR (USI_OVF_vect) {
     uint8_t MIDIRX;
-    USICR = 0;                      // Disable USI         
+    USICR = 0;                      // Disable USI
     MIDIRX = USIDR;
     GIFR = 1<<PCIF;                 // Clear pin change interrupt flag.
     GIMSK |= 1<<PCIE; // Enable pin change interrupts again
-      
+
     //Wrong bit order so swap it
     MIDIRX = ((MIDIRX >> 1) & 0x55) | ((MIDIRX  << 1) & 0xaa);
     MIDIRX = ((MIDIRX >> 2) & 0x33) | ((MIDIRX  << 2) & 0xcc);
     MIDIRX = ((MIDIRX >> 4) & 0x0f) | ((MIDIRX  << 4) & 0xf0);
-      
+
     //Parse MIDI data
     if ((MIDIRX>0xBF)&&(MIDIRX<0xF8)) {
       MIDIRUNNINGSTATUS=0;
@@ -267,11 +269,11 @@ Add this code to the setup and MIDI parser:
     //Setup addon for pitchbend output
     pinMode(4, OUTPUT); // Enable PB4 output pin for pitchbend CV
     GTCCR = 1<<PWM1B | 2<<COM1B0; // PWM B, clear on match
-      
+
     //USI_OVF_vect addon
     if (MIDIRUNNINGSTATUS == 0xE0) { //If pitchbend data
     if (MIDIVEL<4) MIDIVEL=4; //Limit pitchbend to -60
     if (MIDIVEL>119) MIDIVEL=119; //Limit pitchbend to +60
     MIDIVEL-=4; //Center the pitchbend value
     OCR1B = (MIDIVEL<<1); //Output pitchbend CV
-    } 
+    }
