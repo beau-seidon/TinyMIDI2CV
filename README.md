@@ -3,8 +3,8 @@ This is a reworked and expanded version of the DIY Good Ol’ MIDI to CV project
 This circuit can be embedded in other projects, or built standalone, like as a eurorack module.
 
 <p float="left">
-  <img src="./other%20resources/module_front.jpg" width=33% />
-  <img src="./other%20resources/module_back.jpg" width=33% />
+  <img src="./other%20resources/module_images/module_front.jpg" width=33% />
+  <img src="./other%20resources/module_images/module_back.jpg" width=33% />
 </p>
 
 
@@ -45,7 +45,7 @@ From original project: [https://www.hackster.io/janost/diy-good-ol-midi-to-cv-d0
 
 The goMIDI2CV takes TTL-MIDI input and outputs a 1V/Octave CV and a gate signal.
 
-![img1](./other%20resources/images/midi2cvchip.png "midi2cvchip.png")
+![img1](./other%20resources/jo_images/midi2cvchip.png "midi2cvchip.png")
 
 ## Story
 _This is really a tutorial on how to use the USI component on the ATtiny as a UART-RX and MIDI is as good as any application for a UART._
@@ -58,7 +58,7 @@ Now you can.
 
 The goMIDI2CV takes a TTL-MIDI input and outputs a 1V/Octave CV and a gate signal.
 
-![img2](./other%20resources/images/gomidi2cv_L4cEjyrZ62.png "gomidi2cv_L4cEjyrZ62.png")
+![img2](./other%20resources/jo_images/gomidi2cv_L4cEjyrZ62.png "gomidi2cv_L4cEjyrZ62.png")
 
 The code runs on a ATtiny45/85 microcontroller.
 
@@ -66,7 +66,7 @@ PB0 is the MIDI input.PB1 is the CV output.PB2 is the gate output
 
 The MIDI-in is a TTL input and needs the usual optocoupler.
 
-![img3](./other%20resources/images/midi_input_opto_aIgUWQdn2x.png "midi_input_opto_aIgUWQdn2x.png")
+![img3](./other%20resources/jo_images/midi_input_opto_aIgUWQdn2x.png "midi_input_opto_aIgUWQdn2x.png")
 
 The CV-out is a PWM signal and needs a lowpass filter. Range is C2-C7, 0-5 volts.
 
@@ -144,7 +144,7 @@ Next we need a pinchange interrupt to handle the start bit in the MIDI serial in
 
 MIDI is serial data at 31250bits/s so one bit time is 32 microseconds.
 
-![img4](./other%20resources/images/serial-byte2_68s35OcssG.png "serial-byte2_68s35OcssG.png")
+![img4](./other%20resources/jo_images/serial-byte2_68s35OcssG.png "serial-byte2_68s35OcssG.png")
 
 The start of a byte causes a pin-change interrupt. In the pin-change interrupt service routine we check that it’s a falling edge, and if so we set up Timer/Counter0 in CTC mode. We want to set up a delay of half a bit, to get into the middle of the start bit. The closest we can get to that is a prescaler of 8 and a compare match of 32. Finally we clear and enable the output compare interrupt.
 

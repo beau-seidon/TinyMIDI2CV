@@ -1,20 +1,23 @@
-// (*) All in the spirit of open-source and open-hardware
-// Janost 2019 Sweden
-// The goMIDI2CV interface
-// http://blog.dspsynth.eu/diy-good-ol-midi-to-cv/
-// Copyright 2019 DSP Synthesizers Sweden.
-// Changes Copyright 2023-2024 Beau Sterling, Aether Soundlab, USA
-//
-// Authors: Jan Ostman and Beau Sterling
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU General Public License for more details.
+/*
+    (*) All in the spirit of open-source and open-hardware
+    Janost 2019 Sweden
+    The goMIDI2CV interface
+    http://blog.dspsynth.eu/diy-good-ol-midi-to-cv/
+    Copyright 2019 DSP Synthesizers Sweden.
+    Changes Copyright 2023-2024 Beau Sterling, Aether Soundlab, USA
+
+    Authors: Jan Ostman and Beau Sterling
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+*/
+
 
 
 // Set Fuses to E1 DD FE for PLLCLK 16MHz
@@ -50,26 +53,27 @@ volatile uint8_t midi_data1 = 0x0;
 volatile uint8_t midi_data2 = 0x0;
 
 const bool MIDI_OMNI = false;                       // Set true to ignore filter, or false to use a single midi channel
-const uint8_t MIDI_CHANNEL_FILTER = 0;              // MIDI channel 1
+const uint8_t MIDI_CHANNEL_FILTER = 0x0;            // MIDI channel 1 (zero-indexed, 0x0-0xF)
 const uint8_t MIDI_CC_FILTER = 3;
-
-const uint8_t LOW_NOTE = 36;                        // Any note lower than C2 will be interpreted as C2
-const uint8_t HIGH_NOTE = 96;                       // Any note higher than C7 will be interpreted as C7
 
 const uint8_t POLYPHONY_MAX = 16;                   // Set buffer and gate "polyphony" limit
 volatile uint8_t note_buffer[POLYPHONY_MAX] = {0};
 volatile uint8_t active_notes = 0;                  // Gate will be open while any keys are pressed (any notes active)
+
+const uint8_t LOW_NOTE = 36;                        // Any note lower than C2 will be interpreted as C2
+const uint8_t HIGH_NOTE = 96;                       // Any note higher than C7 will be interpreted as C7
 
 const int BEND_MAX = 0x3FFF;
 const int BEND_CENTER = 0x2000;
 const int BEND_MIN = 0x0;
 
 enum CV2_MODE { UNUSED, CC, PITCH_BEND, VELOCITY, ENVELOPE, GATE, TRIG, SYNC, NOTE, INV_NOTE, LFO };
-volatile CV2_MODE CV2 = VELOCITY;
+volatile CV2_MODE cv2 = VELOCITY;
 
-volatile bool RETRIGGER = true;
 const uint8_t RETRIG_MODE_CC = 68;
 enum GATE_STATE { CLOSED, OPEN, RETRIG };
+volatile bool retrigger = true;
+
 
 
 void setup()
@@ -111,51 +115,51 @@ void handleProgramChange(uint8_t program)
         switch((int)program) {
 
             case CV2_MODE::UNUSED:
-                CV2 = UNUSED;
+                cv2 = UNUSED;
                 break;
 
             case CV2_MODE::CC:
-                CV2 = CC;
+                cv2 = CC;
                 break;
 
             case CV2_MODE::PITCH_BEND:
-                CV2 = PITCH_BEND;
+                cv2 = PITCH_BEND;
                 break;
 
             case CV2_MODE::VELOCITY:
-                CV2 = VELOCITY;
+                cv2 = VELOCITY;
                 break;
 
             case CV2_MODE::ENVELOPE:
-                CV2 = ENVELOPE;
+                cv2 = ENVELOPE;
                 break;
 
             case CV2_MODE::GATE:
-                CV2 = GATE;
+                cv2 = GATE;
                 break;
 
             case CV2_MODE::TRIG:
-                CV2 = TRIG;
+                cv2 = TRIG;
                 break;
 
             case CV2_MODE::SYNC:
-                CV2 = SYNC;
+                cv2 = SYNC;
                 break;
 
             case CV2_MODE::NOTE:
-                CV2 = NOTE;
+                cv2 = NOTE;
                 break;
 
             case CV2_MODE::INV_NOTE:
-                CV2 = INV_NOTE;
+                cv2 = INV_NOTE;
                 break;
 
             case CV2_MODE::LFO:
-                CV2 = LFO;
+                cv2 = LFO;
                 break;
 
             default:  // ISSUE#1: playing notes while wailing on pitch bend seems to send program here
-                CV2 = UNUSED;
+                cv2 = UNUSED;
                 break;
         }
     }
@@ -189,9 +193,9 @@ void sendInvNote(uint8_t note)
 void handleRetrigModeToggle(uint8_t cc_value)
 {
     if (cc_value > 63)
-        RETRIGGER = true;
+        retrigger = true;
     else
-        RETRIGGER = false;
+        retrigger = false;
 }
 
 
@@ -224,7 +228,7 @@ void sendGate(GATE_STATE gate_state)
 
 void handleVelocity(uint8_t vel)
 {
-    if (CV2 == VELOCITY) OCR1B = vel << 1;
+    if (cv2 == VELOCITY) OCR1B = vel << 1;
 }
 
 
@@ -254,7 +258,7 @@ void handleNoteOn(uint8_t note)
     for (uint8_t n = 0; n < active_notes; n++) {  // If note is already in the buffer, play it, but don't add it again
         if (note_buffer[n] == note) {
             sendNote(note);
-            // if (CV2 == INV_NOTE) sendInvNote(note);  // not tested
+            // if (cv2 == INV_NOTE) sendInvNote(note);  // not tested
             return;
         }
     }
@@ -264,9 +268,9 @@ void handleNoteOn(uint8_t note)
         active_notes++;
 
         sendNote(note);
-        // if (CV2 == INV_NOTE) sendInvNote(note);  // not tested
+        // if (cv2 == INV_NOTE) sendInvNote(note);  // not tested
 
-        if (RETRIGGER)
+        if (retrigger)
             sendGate(GATE_STATE::RETRIG);
         else
             sendGate(GATE_STATE::OPEN);
@@ -299,7 +303,7 @@ void handleNoteOff(uint8_t note)
 
         if (active_notes) {
             sendNote(note_buffer[active_notes-1]);
-            // if (CV2 == INV_NOTE) sendInvNote(note_buffer[active_notes-1]);  // not tested
+            // if (cv2 == INV_NOTE) sendInvNote(note_buffer[active_notes-1]);  // not tested
 
             sendGate(GATE_STATE::OPEN);
 
@@ -358,14 +362,14 @@ void translateChannelMessage()
         if ((midi_status >> 4) == 0xB) {
             if (midi_data1 == RETRIG_MODE_CC) {
                 handleRetrigModeToggle(midi_data2);
-            } else if (CV2 == CC) {
+            } else if (cv2 == CC) {
                 handleControlChange(midi_data1, midi_data2);
             }
         }
 
 
         // Handle pitch bend
-        if ((CV2 == PITCH_BEND) && (midi_status >> 4) == 0xE) {
+        if ((cv2 == PITCH_BEND) && (midi_status >> 4) == 0xE) {
             handlePitchBend(midi_data1, midi_data2);
         }
     }
