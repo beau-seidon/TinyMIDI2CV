@@ -5,7 +5,7 @@
   (paper "USLetter")
 
   (title_block
-    (title "goMIDI2CV")
+    (title "TinyMIDI2CV")
     (date "2023-12-23")
     (rev "3")
     (company "Aether Soundlab")
@@ -1634,7 +1634,7 @@
     (pin "7" (uuid 0a11aa7f-8bfd-4461-8e83-1f726d626bd3))
     (pin "8" (uuid 32c29ee4-e4de-4210-a0c8-43283f1e319d))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "U3") (unit 1)
         )
@@ -1663,7 +1663,7 @@
     (pin "4" (uuid 899e7e1a-42fd-4edd-a61d-a19a2507a681))
     (pin "5" (uuid 95ef7a81-188b-47d7-b0ce-7db3746617df))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "J2") (unit 1)
         )
@@ -1689,7 +1689,7 @@
     (pin "1" (uuid 2ba62aed-6209-4dd3-9c71-1ed221b3de24))
     (pin "2" (uuid 8420f5c9-b13b-43c9-bdac-3eed5e59524a))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "R3") (unit 1)
         )
@@ -1727,7 +1727,7 @@
     (pin "11" (uuid 90f1c8c9-0e53-49f6-820e-d13a1a7d9994))
     (pin "4" (uuid 2790bc47-7df6-405f-9873-882e436731d5))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "U2") (unit 5)
         )
@@ -1754,7 +1754,7 @@
     (pin "2" (uuid 787137c1-6e92-425e-bdc2-95fb6c0f6e14))
     (pin "3" (uuid 0da3f1d8-6019-471a-9d61-40bd73103d8a))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "RV1") (unit 1)
         )
@@ -1779,7 +1779,7 @@
     )
     (pin "1" (uuid 2e7c5525-f5cd-4141-b42c-2dafd07b7f7b))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "#PWR012") (unit 1)
         )
@@ -1806,7 +1806,7 @@
     (pin "T" (uuid 43796cab-3c68-4ab7-9657-9bdc83823cbd))
     (pin "TN" (uuid fe9f742d-07a2-4760-83c7-5a52815eded8))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "J3") (unit 1)
         )
@@ -1844,7 +1844,7 @@
     (pin "11" (uuid 61ead3c7-f622-44b1-8bd2-7512da04b363))
     (pin "4" (uuid d3e1cd39-a354-4774-99e5-835061bcc394))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "U2") (unit 1)
         )
@@ -1869,7 +1869,7 @@
     )
     (pin "1" (uuid 3a82e054-6631-4080-8e1f-c0228390e64f))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "#PWR01") (unit 1)
         )
@@ -1895,7 +1895,7 @@
     (pin "1" (uuid 40bbce5e-3411-4c0c-b56c-13f9a57d71fc))
     (pin "2" (uuid 543e4d50-2b89-4f29-aedc-3cf240d3d4fd))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "C4") (unit 1)
         )
@@ -1920,7 +1920,7 @@
     )
     (pin "1" (uuid 267bfd98-b907-4185-9d88-79c851643cb4))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "#PWR07") (unit 1)
         )
@@ -1945,7 +1945,7 @@
     )
     (pin "1" (uuid 139524fa-13a3-4d2c-a6d5-dce15e574b84))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "#PWR014") (unit 1)
         )
@@ -1971,7 +1971,7 @@
     (pin "1" (uuid 4947dcd5-d344-419e-8620-336530307085))
     (pin "2" (uuid 58bbe792-bf8f-4ae3-a884-ef5dc8b7ce25))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "R7") (unit 1)
         )
@@ -1998,7 +1998,7 @@
     (pin "T" (uuid 2a3afd74-35fb-407b-8ffa-cdd54310ec87))
     (pin "TN" (uuid f31375b8-9977-4392-b60a-68cb4814c19a))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "J4") (unit 1)
         )
@@ -2036,7 +2036,7 @@
     (pin "11" (uuid f8a11ef2-b435-4118-a4c8-1542771a9e50))
     (pin "4" (uuid 5d51cf84-8741-4227-8cda-11e502bb38c9))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "U2") (unit 4)
         )
@@ -2062,7 +2062,7 @@
     (pin "1" (uuid 01a760ff-e314-4960-9d8a-5eeab8de7024))
     (pin "2" (uuid 92c9ac2a-a569-4cf1-991c-a38d4fedc546))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "R9") (unit 1)
         )
@@ -2088,7 +2088,7 @@
     (pin "1" (uuid dc71333a-efe4-41d2-8877-0c9d97c511b3))
     (pin "2" (uuid b1239be3-1f69-4284-93ff-9c9611b1956a))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "R6") (unit 1)
         )
@@ -2113,7 +2113,7 @@
     )
     (pin "1" (uuid 88dee611-ce9c-49d7-a8e2-e1c76fadd7bd))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "#PWR013") (unit 1)
         )
@@ -2138,7 +2138,7 @@
     )
     (pin "1" (uuid ce62ecbc-4c0e-4bf3-bd6f-2705adc51679))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "#PWR015") (unit 1)
         )
@@ -2170,7 +2170,7 @@
     (pin "7" (uuid f54e7eef-3d0f-48ce-b04d-663da63b8100))
     (pin "8" (uuid 0ae05e9f-a824-4b50-b492-dce8faa6b0f6))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "U1") (unit 1)
         )
@@ -2195,7 +2195,7 @@
     )
     (pin "1" (uuid 8d94b244-43f0-448c-98c8-1833be3741ad))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "#PWR08") (unit 1)
         )
@@ -2233,7 +2233,7 @@
     (pin "11" (uuid fd3e90fa-822d-4f7b-9199-9a929f5f0e9b))
     (pin "4" (uuid add9aa1a-548a-4ba9-8c53-af07762e1c03))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "U2") (unit 3)
         )
@@ -2273,7 +2273,7 @@
     (pin "8" (uuid 642a33ed-5a9e-47d6-9faf-a7bf359ab3ab))
     (pin "9" (uuid 46200574-4c86-4fbc-acdc-09d768692387))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "J1") (unit 1)
         )
@@ -2298,7 +2298,7 @@
     )
     (pin "1" (uuid 7dbef934-174c-40be-bbfb-52c3bd951ac8))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "#PWR011") (unit 1)
         )
@@ -2324,7 +2324,7 @@
     (pin "1" (uuid 65431249-ed67-4088-a66b-fe84354eeb8d))
     (pin "2" (uuid 79a19e68-306c-4df8-baa6-a4c5d1bbd902))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "R1") (unit 1)
         )
@@ -2356,7 +2356,7 @@
     (pin "1" (uuid 6d2ce073-c0e0-4d70-b3f0-c5edfaaad4e6))
     (pin "2" (uuid 2618a7b3-707c-4b6b-829a-8cdf1bfbcc80))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "D1") (unit 1)
         )
@@ -2381,7 +2381,7 @@
     )
     (pin "1" (uuid 2f212683-fede-4d8c-9c14-0e52879707fc))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "#PWR09") (unit 1)
         )
@@ -2419,7 +2419,7 @@
     (pin "11" (uuid 75a161fc-6c3a-4060-b939-bbfb42fc4aac))
     (pin "4" (uuid bf8a1950-48c5-40f7-a6cc-5218be917299))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "U2") (unit 2)
         )
@@ -2444,7 +2444,7 @@
     )
     (pin "1" (uuid abacfbba-6cc2-445d-b2fd-db273d1fa3c6))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "#PWR04") (unit 1)
         )
@@ -2469,7 +2469,7 @@
     )
     (pin "1" (uuid 62e078c8-0cec-47ff-a5af-c93466c7b675))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "#PWR05") (unit 1)
         )
@@ -2494,7 +2494,7 @@
     )
     (pin "1" (uuid b6e6f91d-771e-47eb-bda3-e6aae5ea3e85))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "#PWR02") (unit 1)
         )
@@ -2519,7 +2519,7 @@
     )
     (pin "1" (uuid 261e4f78-071c-4fa8-83ca-97470cb310aa))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "#PWR06") (unit 1)
         )
@@ -2546,7 +2546,7 @@
     (pin "T" (uuid ba45ede6-0548-4704-89e8-7ebb0f32887c))
     (pin "TN" (uuid e95797be-47ea-47fe-9209-2bad21e5dd6b))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "J5") (unit 1)
         )
@@ -2572,7 +2572,7 @@
     (pin "1" (uuid daa1ec9e-cff3-4361-81cc-8f4b54f06c66))
     (pin "2" (uuid f1456d46-5388-44e3-b29b-43f3d5489e08))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "R8") (unit 1)
         )
@@ -2598,7 +2598,7 @@
     (pin "1" (uuid 70a9866f-3c27-4396-ab73-594c397f3c7b))
     (pin "2" (uuid 657284dc-9fd7-4e7e-a64b-700d27ae5606))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "R4") (unit 1)
         )
@@ -2623,7 +2623,7 @@
     )
     (pin "1" (uuid 72367ac9-044c-4b9b-8319-72c3b16af2c6))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "#PWR03") (unit 1)
         )
@@ -2649,7 +2649,7 @@
     (pin "1" (uuid 8d0a97ab-d03e-44aa-bf59-99ab5d0543b5))
     (pin "2" (uuid e59ff5dd-d152-49f0-9add-127551c5c2c0))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "R5") (unit 1)
         )
@@ -2674,7 +2674,7 @@
     )
     (pin "1" (uuid 45d03c8b-f95d-46f4-8334-215a37a05993))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "#PWR016") (unit 1)
         )
@@ -2700,7 +2700,7 @@
     (pin "1" (uuid 78136fa0-e79d-4e90-aeee-d2d24dbb56f8))
     (pin "2" (uuid 97429f34-b4ca-4362-bf9e-b4f06e40da35))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "C2") (unit 1)
         )
@@ -2726,7 +2726,7 @@
     (pin "1" (uuid d8686309-6e8a-4209-a3d9-ebe01591a177))
     (pin "2" (uuid eca2384f-5cf4-4fa3-84be-43fc01bdb2f5))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "R2") (unit 1)
         )
@@ -2751,7 +2751,7 @@
     )
     (pin "1" (uuid 9e0eecd7-45f5-4f43-bda3-efe2b1630c84))
     (instances
-      (project "goMIDI2CV"
+      (project "TinyMIDI2CV"
         (path "/a2e7f5a5-4bf0-4de9-9dc9-ea0424afec75"
           (reference "#PWR010") (unit 1)
         )
