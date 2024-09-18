@@ -1,7 +1,8 @@
-Assuming ArduinoIDE is installed, the following command will set the fuse bits correctly for goMIDI2CV, while using an Arudino Uno as an ISP programmer for the ATTiny85:
+Assuming ArduinoIDE is installed, the following command will set the fuse bits correctly for TinyMIDI2CV, while using an Arudino Uno as an ISP programmer for the ATTiny85:
 
 "C:\Program Files (x86)\Arduino\hardware\tools\avr/bin/avrdude" -C "C:\Program Files (x86)\Arduino\hardware\tools\avr/etc/avrdude.conf" -v -p attiny85 -c stk500v1 -P COM4 -b 19200 -e -U lfuse:w:0xe1:m -U hfuse:w:0xdd:m -U efuse:w:0xfe:m
 
+You may need to change the COM port number to match your device. The correct number may be found in the Windows Device Manager, or in the Tools > Port menu in ArduinoIDE. 
 
 
 If using VSCode & PlatformIO, make sure your programmer is configured correctly in platformio.ini and add the following lines:
