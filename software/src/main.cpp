@@ -52,9 +52,11 @@ volatile uint8_t midi_channel = 0x0;
 volatile uint8_t midi_data1 = 0x0;
 volatile uint8_t midi_data2 = 0x0;
 
+
 const bool MIDI_OMNI = false;                       // Set true to ignore filter, or false to use a single midi channel
 const uint8_t MIDI_CHANNEL_FILTER = 0x0;            // MIDI channel 1 (zero-indexed, 0x0-0xF)
-const uint8_t MIDI_CC_FILTER = 3;
+volatile uint8_t midi_cc_filter = 3;
+
 
 const uint8_t POLYPHONY_MAX = 16;                   // Set buffer and gate "polyphony" limit
 volatile uint8_t note_buffer[POLYPHONY_MAX] = {0};
@@ -63,16 +65,40 @@ volatile uint8_t active_notes = 0;                  // Gate will be open while a
 const uint8_t LOW_NOTE = 36;                        // Any note lower than C2 will be interpreted as C2
 const uint8_t HIGH_NOTE = 96;                       // Any note higher than C7 will be interpreted as C7
 
+
 const int BEND_MAX = 0x3FFF;
 const int BEND_CENTER = 0x2000;
 const int BEND_MIN = 0x0;
 
-enum CV2_MODE { UNUSED, CC, PITCH_BEND, VELOCITY, ENVELOPE, GATE, TRIG, SYNC, NOTE, INV_NOTE, LFO };
-volatile CV2_MODE cv2 = VELOCITY;
+
+enum CV2_MODE {
+    PITCH_BEND, MODWHEEL, CC, VELOCITY,
+    NOTE, INV_NOTE, GATE, INV_GATE,
+    TRIG, ENVELOPE, LFO, SYNC,
+    PARAPHONIC, RT_TOGGLE, UNUSED1, UNUSED2
+};
+volatile CV2_MODE cv2 = MODWHEEL;
 
 const uint8_t RETRIG_MODE_CC = 68;
 enum GATE_STATE { CLOSED, OPEN, RETRIG };
 volatile bool retrigger = true;
+
+
+#define SYSEX_ID 0x7D
+#define DEVICE_ID 0x67
+
+enum SYSEX_BYTE_ID {
+    START, SYXID, DEVID, PADDING,
+    COMMAND, VALUE, CHECKSUM, STOP
+};
+
+const uint8_t SYSEX_BUFFER_SIZE = 16;
+volatile uint8_t sysex_buffer[SYSEX_BUFFER_SIZE];
+volatile uint8_t sysex_byte_count = 0;
+
+volatile bool sysex_listen = false;
+volatile bool sysex_ignore = false;
+volatile bool sysex_msg_ok = false;
 
 
 
@@ -108,42 +134,25 @@ void setup()
 
 
 
-void handleProgramChange(uint8_t program)
-{
-    if ((midi_channel == MIDI_CHANNEL_FILTER) || MIDI_OMNI) {
-
-        switch((int)program) {
-
-            case CV2_MODE::UNUSED:
-                cv2 = UNUSED;
-                break;
-
-            case CV2_MODE::CC:
-                cv2 = CC;
-                break;
+void setCV2Mode(uint8_t mode) {
+        switch((int)mode) {
 
             case CV2_MODE::PITCH_BEND:
                 cv2 = PITCH_BEND;
                 break;
 
+            case CV2_MODE::MODWHEEL:
+                cv2 = CC;
+                midi_cc_filter = 1;
+                break;
+
+            case CV2_MODE::CC:
+                cv2 = CC;
+                midi_cc_filter = 3;
+                break;
+
             case CV2_MODE::VELOCITY:
                 cv2 = VELOCITY;
-                break;
-
-            case CV2_MODE::ENVELOPE:
-                cv2 = ENVELOPE;
-                break;
-
-            case CV2_MODE::GATE:
-                cv2 = GATE;
-                break;
-
-            case CV2_MODE::TRIG:
-                cv2 = TRIG;
-                break;
-
-            case CV2_MODE::SYNC:
-                cv2 = SYNC;
                 break;
 
             case CV2_MODE::NOTE:
@@ -154,15 +163,139 @@ void handleProgramChange(uint8_t program)
                 cv2 = INV_NOTE;
                 break;
 
+            case CV2_MODE::GATE:
+                cv2 = GATE;
+                break;
+
+            case CV2_MODE::INV_GATE:
+                cv2 = INV_GATE;
+                break;
+
+            case CV2_MODE::TRIG:
+                cv2 = TRIG;
+                break;
+
+            case CV2_MODE::ENVELOPE:
+                cv2 = ENVELOPE;
+                break;
+
             case CV2_MODE::LFO:
                 cv2 = LFO;
                 break;
 
-            default:  // ISSUE#1: playing notes while wailing on pitch bend seems to send program here
-                cv2 = UNUSED;
+            case CV2_MODE::SYNC:
+                cv2 = SYNC;
+                break;
+
+            case CV2_MODE::PARAPHONIC:
+                cv2 = PARAPHONIC;
+                break;
+
+            case CV2_MODE::RT_TOGGLE:
+                if (retrigger)
+                    retrigger = false;
+                else
+                    retrigger = true;
+                break;
+
+            default:
+                cv2 = CV2_MODE::UNUSED2;
                 break;
         }
+}
+
+
+
+void handleProgramChange(uint8_t program)
+{
+    if ((midi_channel == MIDI_CHANNEL_FILTER) || MIDI_OMNI) {
+        setCV2Mode(program);
     }
+}
+
+
+
+void startSysExListener()
+{
+    sysex_listen = true;
+}
+
+
+
+void handleSysEx(uint8_t syx)
+{
+    // check for buffer overflow
+    if (sysex_byte_count >= SYSEX_BUFFER_SIZE) {
+        for (int i = 0; i < SYSEX_BUFFER_SIZE; ++i) {
+            sysex_buffer[i] = 0x0;
+        }
+        sysex_byte_count = 0;
+        sysex_ignore = true;
+        return;  // reset entire buffer and ignore
+    }
+
+
+    // load buffer with new byte
+    sysex_buffer[sysex_byte_count] = syx;
+    sysex_byte_count++;
+
+
+    // check to see if message is valid
+    if (!sysex_msg_ok) {
+        if (sysex_buffer[0] == 0xF0) {  // if valid sysex start byte
+            if (sysex_byte_count >= 3) {
+                if (sysex_buffer[1] == SYSEX_ID || sysex_buffer[2] == DEVICE_ID) {  // if valid address
+                    sysex_msg_ok = true;
+                    return;  // message ok, load the rest
+                } else {
+                    for (int i = 0; i < sysex_byte_count; ++i) {
+                        sysex_buffer[i] = 0x0;
+                    }
+                    sysex_byte_count = 0;
+                    sysex_ignore = true;
+                    return;  // invalid address, reset and ignore buffer
+                }
+            } else { return; }  // not enough bytes yet
+        } else {
+            sysex_buffer[0] = 0x0;
+            sysex_byte_count = 0;
+            sysex_ignore = true;
+            return;  // invalid start byte, reset and ignore buffer
+        }
+    }
+
+
+    if (syx == 0x7F) { // if current byte is end of message flag
+        uint8_t value;
+        if (sysex_buffer[SYSEX_BYTE_ID::COMMAND] == 0x02) {
+            value = sysex_buffer[SYSEX_BYTE_ID::VALUE];
+            setCV2Mode(value);
+            return;
+        }
+        if (sysex_buffer[SYSEX_BYTE_ID::COMMAND] == 0x03) {
+            value = sysex_buffer[SYSEX_BYTE_ID::VALUE];
+            midi_cc_filter = value;
+            return;
+        }
+    }
+
+    // example message:
+    // F0 7D 67 00 02 05 00 7F
+    // means set CV2 mode to INV_NOTE
+}
+
+
+
+void stopSysExListener(uint8_t syx)
+{
+    handleSysEx(syx);
+    for (int i = 0; i < SYSEX_BUFFER_SIZE; ++i) {
+        sysex_buffer[i] = 0x0;
+    }
+    sysex_byte_count = 0;
+    sysex_listen = false;
+    sysex_ignore = false;
+    sysex_msg_ok = false;
 }
 
 
@@ -176,16 +309,18 @@ void limitNoteRange()
 
 
 
-void sendNote(uint8_t note)
+void sendInvNote(uint8_t note)
 {
-    OCR1A = note << 2;  // Multiply note by 4 to set the voltage (1v/octave)
+    OCR1B = OCR1C - (note << 2);
 }
 
 
 
-void sendInvNote(uint8_t note)
+void sendNote(uint8_t note)
 {
-    OCR1B = OCR1C - (note << 2);
+    OCR1A = note << 2;  // Multiply note by 4 to set the voltage (1v/octave)
+    if (cv2 == NOTE) OCR1B = note << 2;
+    if (cv2 == INV_NOTE) sendInvNote(note);
 }
 
 
@@ -200,26 +335,48 @@ void handleRetrigModeToggle(uint8_t cc_value)
 
 
 
+void sendGateCV(bool gate)
+{
+    if (cv2 == GATE) {
+        if (gate) OCR1B = 255;
+        else OCR1B = 0;
+        return;
+    }
+
+    if (cv2 == INV_GATE) {
+        if (gate) OCR1B = 0;
+        else OCR1B = 255;
+        return;
+    }
+}
+
+
+
 void sendGate(GATE_STATE gate_state)
 {
     switch (gate_state) {
 
         case GATE_STATE::CLOSED:
             digitalWrite(GATE_CV_PIN, LOW);  // Set Gate LOW
+            sendGateCV(LOW);
             break;
 
         case GATE_STATE::OPEN:
             digitalWrite(GATE_CV_PIN, HIGH);  // Set Gate HIGH
+            sendGateCV(HIGH);
             break;
 
         case GATE_STATE::RETRIG:
             digitalWrite(GATE_CV_PIN, LOW);
+            sendGateCV(LOW);
             delayMicroseconds(32);
             digitalWrite(GATE_CV_PIN, HIGH);
+            sendGateCV(HIGH);
             break;
 
         default:
             digitalWrite(GATE_CV_PIN, LOW);
+            sendGateCV(LOW);
             break;
     }
 }
@@ -235,19 +392,21 @@ void handleVelocity(uint8_t vel)
 
 void handleControlChange(uint8_t cc_num, uint8_t cc_value)
 {
-    if (cc_num == MIDI_CC_FILTER) OCR1B = cc_value << 1;
+    if (cc_num == midi_cc_filter) OCR1B = cc_value << 1;
 }
 
 
 
-void handlePitchBend(uint8_t data1, uint8_t data2)  // test more: buggy with cakewalk / voltage modular
+void handlePitchBend(uint8_t data1, uint8_t data2)
 {
-    unsigned int bend;
-    bend = (unsigned int)data2;  // MSB
-    bend <<= 7;
-    bend |= (unsigned int)data1;  // LSB
+    // unsigned int bend;
+    // bend = (unsigned int)data2;  // MSB
+    // bend <<= 7;
+    // bend |= (unsigned int)data1;  // LSB
+    // uint8_t bend_CV = map(bend, BEND_MIN, BEND_MAX, 0, 255);
 
-    uint8_t bend_CV = map(bend, BEND_MIN, BEND_MAX, 0, 255);
+    uint8_t bend_CV = data2 << 1;  // MSB-only behaves better than map
+
     OCR1B = bend_CV;  // Output pitchbend CV
 }
 
@@ -258,7 +417,6 @@ void handleNoteOn(uint8_t note)
     for (uint8_t n = 0; n < active_notes; n++) {  // If note is already in the buffer, play it, but don't add it again
         if (note_buffer[n] == note) {
             sendNote(note);
-            // if (cv2 == INV_NOTE) sendInvNote(note);  // not tested
             return;
         }
     }
@@ -268,7 +426,6 @@ void handleNoteOn(uint8_t note)
         active_notes++;
 
         sendNote(note);
-        // if (cv2 == INV_NOTE) sendInvNote(note);  // not tested
 
         if (retrigger)
             sendGate(GATE_STATE::RETRIG);
@@ -303,7 +460,6 @@ void handleNoteOff(uint8_t note)
 
         if (active_notes) {
             sendNote(note_buffer[active_notes-1]);
-            // if (cv2 == INV_NOTE) sendInvNote(note_buffer[active_notes-1]);  // not tested
 
             sendGate(GATE_STATE::OPEN);
 
@@ -317,7 +473,6 @@ void handleNoteOff(uint8_t note)
 
 // for future use, not tested yet:
 /*
-
 void sendTrig()
 {
     if (active_notes > 0) {
@@ -332,7 +487,6 @@ void sendTrig()
         }
     }
 }
-
 */
 
 
@@ -382,21 +536,30 @@ void parseMIDI(uint8_t midi_RX)
     // Nothing is done to the buffer when a RealTime Category message is received.
     if (midi_RX > 0xF7) return;
 
+
     // Buffer is cleared when a System Common Category Status (ie, 0xF0 to 0xF7) is received.
     if ((midi_RX > 0xEF) && (midi_RX < 0xF8)) {
         midi_status = 0x0;
         midi_channel = 0x0;
         midi_message_byte = 0;
+
+        if (midi_RX == 0xF0) startSysExListener();
+        if (midi_RX == 0xF7) stopSysExListener(midi_RX);
+        if (sysex_listen && !sysex_ignore) handleSysEx(midi_RX);
+
         return;
     }
+
 
     // Buffer stores the status when a Voice Category Status (ie, 0x80 to 0xEF) is received.
     if ((midi_RX > 0x7F) && (midi_RX < 0xF0)) {
         midi_status = midi_RX;
         midi_channel = midi_status & 0x0F;
         midi_message_byte = 1;
+
         return;
     }
+
 
     // Any data bytes are ignored when the buffer is 0.
     if (midi_RX < 0x80) {
