@@ -1,21 +1,28 @@
 /*
-    (*) All in the spirit of open-source and open-hardware
-    Janost 2019 Sweden
-    The goMIDI2CV interface
-    http://blog.dspsynth.eu/diy-good-ol-midi-to-cv/
-    Copyright 2019 DSP Synthesizers Sweden.
-    Changes Copyright 2023-2024 Beau Sterling, Aether Soundlab, USA
+    TinyMIDI2CV
 
-    Authors: Jan Ostman and Beau Sterling
+    Copyright 2023-2024 Beau Sterling (Aether Soundlab)
 
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-    GNU General Public License for more details.
+    Based on DIY Good Ol’ MIDI to CV by Jan Ostman:
+        (*) All in the spirit of open-source and open-hardware
+        Janost 2019 Sweden
+        The goMIDI2CV interface
+        http://blog.dspsynth.eu/diy-good-ol-midi-to-cv/
+        Copyright 2019 DSP Synthesizers Sweden.
+
+
+    This program is free software: you can redistribute it and/or modify it
+    under the terms of the GNU General Public License as published by the Free
+    Software Foundation, either version 3 of the License, or (at your option)
+    any later version.
+
+    This program is distributed in the hope that it will be useful, but WITHOUT
+    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+    FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+    more details.
+
+    You should have received a copy of the GNU General Public License along with
+    This program. If not, see <https://www.gnu.org/licenses/>.
 */
 
 
@@ -65,11 +72,14 @@ volatile uint8_t active_notes = 0;                  // Gate will be open while a
 const uint8_t LOW_NOTE = 36;                        // Any note lower than C2 will be interpreted as C2
 const uint8_t HIGH_NOTE = 96;                       // Any note higher than C7 will be interpreted as C7
 
+enum PARAPHONIC_PRIORITY { PARA_LAST, PARA_LO, PARA_HI };
+PARAPHONIC_PRIORITY para_priority = PARA_LAST;
 
+/* unused, delete in future?:
 const int BEND_MAX = 0x3FFF;
 const int BEND_CENTER = 0x2000;
 const int BEND_MIN = 0x0;
-
+*/
 
 enum CV2_MODE {
     PITCH_BEND, MODWHEEL, CC, VELOCITY,
@@ -79,13 +89,19 @@ enum CV2_MODE {
 };
 volatile CV2_MODE cv2 = MODWHEEL;
 
+
 const uint8_t RETRIG_MODE_CC = 68;
 enum GATE_STATE { CLOSED, OPEN, RETRIG };
-volatile bool retrigger = true;
+
+enum RETRIG_MODE {
+    RT_OFF,    // never retrigger
+    RT_NEW,    // retrigger when new notes are played
+    RT_ALWAYS  // also retrigger when notes are released if other notes are still held
+}; RETRIG_MODE retrigger = RT_NEW;
 
 
 #define SYSEX_ID 0x7D
-#define DEVICE_ID 0x67
+#define DEVICE_ID 0x42
 
 enum SYSEX_BYTE_ID {
     START, SYXID, DEVID, PADDING,
@@ -192,14 +208,23 @@ void setCV2Mode(uint8_t mode) {
                 break;
 
             case CV2_MODE::RT_TOGGLE:
-                if (retrigger)
-                    retrigger = false;
-                else
-                    retrigger = true;
+                switch(retrigger) {
+                    case RETRIG_MODE::RT_NEW:
+                        retrigger = RT_ALWAYS;
+                        break;
+                    case RETRIG_MODE::RT_ALWAYS:
+                        retrigger = RT_OFF;
+                        break;
+                    case RETRIG_MODE::RT_OFF:
+                    default:
+                        retrigger = RT_NEW;
+                        break;
+                }
                 break;
 
-            default:
-                cv2 = CV2_MODE::UNUSED2;
+            default:  // CV2_MODE::MODWHEEL
+                cv2 = CC;
+                midi_cc_filter = 1;
                 break;
         }
 }
@@ -280,7 +305,7 @@ void handleSysEx(uint8_t syx)
     }
 
     // example message:
-    // F0 7D 67 00 02 05 00 7F
+    // F0 7D 42 00 02 05 00 7F
     // means set CV2 mode to INV_NOTE
 }
 
@@ -324,13 +349,19 @@ void sendNote(uint8_t note)
 }
 
 
+void sendParaNote(uint8_t note)
+{
+    OCR1B = note << 2;
+}
 
 void handleRetrigModeToggle(uint8_t cc_value)
 {
-    if (cc_value > 63)
-        retrigger = true;
+    if (cc_value > 83)
+        retrigger = RT_ALWAYS;
+    else if (cc_value > 42 && cc_value < 84)
+        retrigger = RT_NEW;
     else
-        retrigger = false;
+        retrigger = RT_OFF;
 }
 
 
@@ -355,25 +386,20 @@ void sendGateCV(bool gate)
 void sendGate(GATE_STATE gate_state)
 {
     switch (gate_state) {
-
-        case GATE_STATE::CLOSED:
-            digitalWrite(GATE_CV_PIN, LOW);  // Set Gate LOW
-            sendGateCV(LOW);
-            break;
-
         case GATE_STATE::OPEN:
             digitalWrite(GATE_CV_PIN, HIGH);  // Set Gate HIGH
             sendGateCV(HIGH);
             break;
 
         case GATE_STATE::RETRIG:
-            digitalWrite(GATE_CV_PIN, LOW);
+            digitalWrite(GATE_CV_PIN, LOW);  // Set Gate LOW
             sendGateCV(LOW);
             delayMicroseconds(32);
             digitalWrite(GATE_CV_PIN, HIGH);
             sendGateCV(HIGH);
             break;
 
+        case GATE_STATE::CLOSED:
         default:
             digitalWrite(GATE_CV_PIN, LOW);
             sendGateCV(LOW);
@@ -412,11 +438,44 @@ void handlePitchBend(uint8_t data1, uint8_t data2)
 
 
 
+void handleParaPriority(uint8_t note, uint8_t last_note)
+{
+    switch (para_priority) {
+        case PARA_LO:
+            if (note > last_note) {
+                sendNote(note);
+                sendParaNote(last_note);
+            } else {
+                sendNote(last_note);
+                sendParaNote(note);
+            }
+            break;
+
+        case PARA_HI:
+            if (note > last_note) {
+                sendNote(last_note);
+                sendParaNote(note);
+            } else {
+                sendNote(note);
+                sendParaNote(last_note);
+            }
+            break;
+
+        case PARA_LAST:
+        default:
+            sendNote(note);
+            sendParaNote(last_note);
+            break;
+    }
+}
+
+
+
 void handleNoteOn(uint8_t note)
 {
     for (uint8_t n = 0; n < active_notes; n++) {  // If note is already in the buffer, play it, but don't add it again
         if (note_buffer[n] == note) {
-            sendNote(note);
+            sendNote(note);  // handle paraphonic?
             return;
         }
     }
@@ -425,9 +484,19 @@ void handleNoteOn(uint8_t note)
         note_buffer[active_notes] = note;
         active_notes++;
 
-        sendNote(note);
+        if (cv2 == PARAPHONIC) {
+            if (active_notes > 1) {
+                uint8_t last_note = note_buffer[active_notes-2];
+                handleParaPriority(note, last_note);
+            } else {
+                sendNote(note);
+                sendParaNote(note);
+            }
+        } else {
+            sendNote(note);
+        }
 
-        if (retrigger)
+        if (retrigger != RT_OFF)
             sendGate(GATE_STATE::RETRIG);
         else
             sendGate(GATE_STATE::OPEN);
@@ -454,14 +523,27 @@ void handleNoteOff(uint8_t note)
 
     if (note_off_match) {
         note_off_match = false;
+        note_buffer[active_notes] = 0;  // Remove requested note and play next in buffer
         active_notes--;
 
-        note_buffer[active_notes+1] = 0;  // Remove requested note and play next in buffer
-
         if (active_notes) {
-            sendNote(note_buffer[active_notes-1]);
+            note = note_buffer[active_notes-1];
+            if (cv2 == PARAPHONIC) {
+                if (active_notes > 1) {
+                    uint8_t last_note = note_buffer[active_notes-2];
+                    handleParaPriority(note, last_note);
+                } else {
+                    sendNote(note);
+                    sendNote(note);
+                }
+            } else {
+                sendNote(note);
+            }
 
-            sendGate(GATE_STATE::OPEN);
+            if (retrigger == RT_ALWAYS)
+                sendGate(GATE_STATE::RETRIG);
+            else
+                sendGate(GATE_STATE::OPEN);
 
         } else {
             sendGate(GATE_STATE::CLOSED);
