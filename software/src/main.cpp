@@ -53,6 +53,7 @@ const int NOTE_CV_PIN = 1;
 const int GATE_CV_PIN = 2;
 const int MISC_CV_PIN = 4;
 
+
 volatile uint8_t midi_message_byte = 0;
 volatile uint8_t midi_status = 0x0;
 volatile uint8_t midi_channel = 0x0;
@@ -65,50 +66,54 @@ const uint8_t MIDI_CHANNEL_FILTER = 0x0;            // MIDI channel 1 (zero-inde
 volatile uint8_t midi_cc_filter = 3;
 
 
-const uint8_t POLYPHONY_MAX = 16;                   // Set buffer and gate "polyphony" limit
-volatile uint8_t note_buffer[POLYPHONY_MAX] = {0};
+#define MAX_NOTES 16                                // Set buffer and gate "polyphony" limit
+volatile uint8_t note_buffer[MAX_NOTES] = {0};
 volatile uint8_t active_notes = 0;                  // Gate will be open while any keys are pressed (any notes active)
 
 const uint8_t LOW_NOTE = 36;                        // Any note lower than C2 will be interpreted as C2
 const uint8_t HIGH_NOTE = 96;                       // Any note higher than C7 will be interpreted as C7
 
-enum PARAPHONIC_PRIORITY { PARA_LAST, PARA_LO, PARA_HI };
-PARAPHONIC_PRIORITY para_priority = PARA_LAST;
+enum PARAPHONIC_MODE {
+    PARA_RECENT,  PARA_RECENT_LO,    PARA_RECENT_HI,
+    PARA_OUTER,   PARA_HI, PARA_LO,  PARA_PEDAL,
+    };
+PARAPHONIC_MODE para_mode = PARA_PEDAL;
 
-/* unused, delete in future?:
-const int BEND_MAX = 0x3FFF;
-const int BEND_CENTER = 0x2000;
-const int BEND_MIN = 0x0;
-*/
 
-enum CV2_MODE {
-    PITCH_BEND, MODWHEEL, CC, VELOCITY,
-    NOTE, INV_NOTE, GATE, INV_GATE,
-    TRIG, ENVELOPE, LFO, SYNC,
-    PARAPHONIC, RT_TOGGLE, UNUSED1, UNUSED2
-};
+enum GATE_STATE { CLOSED, OPEN, RETRIG };
+
+
+enum CV2_MODE {  // set by Program Change or SysEx
+    PITCH_BEND,  MODWHEEL,  CC,          VELOCITY,
+    NOTE,        INV_NOTE,  GATE,        INV_GATE,
+    PARAPHONIC,  PARA_SET,  RETRIG_SET,  UNUSED,
+    TRIG,        ENVELOPE,  LFO,         SYNC
+    };
 volatile CV2_MODE cv2 = MODWHEEL;
 
 
-const uint8_t RETRIG_MODE_CC = 68;
-enum GATE_STATE { CLOSED, OPEN, RETRIG };
-
-enum RETRIG_MODE {
+#define RETRIG_MODE_CC 68
+enum RETRIGGER_MODE {
     RT_OFF,    // never retrigger
     RT_NEW,    // retrigger when new notes are played
     RT_ALWAYS  // also retrigger when notes are released if other notes are still held
-}; RETRIG_MODE retrigger = RT_NEW;
+    };
+RETRIGGER_MODE retrig_mode = RT_NEW;
 
 
-#define SYSEX_ID 0x7D
-#define DEVICE_ID 0x42
+#define SYSEX_ID 0x7D   // "Special ID" for non-commercial use only
+#define DEVICE_ID 0x42  // ASCII * (wild card), could mean anything... eg: life, the universe, and everything
 
 enum SYSEX_BYTE_ID {
     START, SYXID, DEVID, PADDING,
     COMMAND, VALUE, CHECKSUM, STOP
-};
+    };
 
-const uint8_t SYSEX_BUFFER_SIZE = 16;
+enum SYSEX_COMMAND {
+    SYX_SET_CHANNEL, SYX_SET_CV2_MODE, SYX_SET_CC_FILTER, SYX_SET_PARAPHONIC_MODE, SYX_SET_RETRIG_MODE
+    };
+
+#define SYSEX_BUFFER_SIZE 16
 volatile uint8_t sysex_buffer[SYSEX_BUFFER_SIZE];
 volatile uint8_t sysex_byte_count = 0;
 
@@ -146,6 +151,49 @@ void setup()
     pinMode(MISC_CV_PIN, OUTPUT);                  // Enable Pitchbend PWM output pin
 
     digitalWrite(GATE_CV_PIN,LOW);                 // Set initial Gate to LOW;
+}
+
+
+
+void setRetrigModePC()
+{
+    switch(retrig_mode) {
+        case RETRIGGER_MODE::RT_NEW:
+            retrig_mode = RT_ALWAYS;
+            break;
+        case RETRIGGER_MODE::RT_ALWAYS:
+            retrig_mode = RT_OFF;
+            break;
+        case RETRIGGER_MODE::RT_OFF:
+        default:
+            retrig_mode = RT_NEW;
+            break;
+    }
+}
+
+
+
+void setRetrigModeCC(uint8_t cc_value)
+{
+    if (cc_value > 83)
+        retrig_mode = RT_ALWAYS;
+    else if (cc_value > 42 && cc_value < 84)
+        retrig_mode = RT_NEW;
+    else
+        retrig_mode = RT_OFF;
+}
+
+
+
+void setParaphonicModePC()
+{
+    int pm = para_mode;
+    if (pm >= 6) {
+        pm = 0;
+    } else {
+        ++pm;
+    }
+    para_mode = (PARAPHONIC_MODE)pm;
 }
 
 
@@ -207,19 +255,12 @@ void setCV2Mode(uint8_t mode) {
                 cv2 = PARAPHONIC;
                 break;
 
-            case CV2_MODE::RT_TOGGLE:
-                switch(retrigger) {
-                    case RETRIG_MODE::RT_NEW:
-                        retrigger = RT_ALWAYS;
-                        break;
-                    case RETRIG_MODE::RT_ALWAYS:
-                        retrigger = RT_OFF;
-                        break;
-                    case RETRIG_MODE::RT_OFF:
-                    default:
-                        retrigger = RT_NEW;
-                        break;
-                }
+            case CV2_MODE::PARA_SET:
+                setParaphonicModePC();
+                break;
+
+            case CV2_MODE::RETRIG_SET:
+                setRetrigModePC();
                 break;
 
             default:  // CV2_MODE::MODWHEEL
@@ -243,6 +284,47 @@ void handleProgramChange(uint8_t program)
 void startSysExListener()
 {
     sysex_listen = true;
+}
+
+
+
+void handleSysExCommand(volatile uint8_t *sysex_buffer)
+{
+    // example message:
+    // F0 7D 42 00 02 05 00 7F
+    // means set CV2 mode to INV_NOTE
+
+    uint8_t value = sysex_buffer[SYSEX_BYTE_ID::VALUE];
+
+    switch(sysex_buffer[SYSEX_BYTE_ID::COMMAND]) {
+        case SYX_SET_CHANNEL:
+            if (value < 0 || value > 15) break;
+            midi_channel = value;
+            break;
+
+        case SYX_SET_CV2_MODE:
+            if (value < 0 || value > 15) break;
+            setCV2Mode(value);
+            break;
+
+        case SYX_SET_CC_FILTER:
+            if (value < 0 || value > 127) break;
+            midi_cc_filter = value;
+            break;
+
+        case SYX_SET_PARAPHONIC_MODE:
+            if (value < 0 || value > 6) break;
+            para_mode = (PARAPHONIC_MODE)value;
+            break;
+
+        case SYX_SET_RETRIG_MODE:
+            if (value < 0 || value > 2) break;
+            retrig_mode = (RETRIGGER_MODE)value;
+            break;
+
+        default:
+            break;
+    }
 }
 
 
@@ -290,23 +372,10 @@ void handleSysEx(uint8_t syx)
     }
 
 
-    if (syx == 0x7F) { // if current byte is end of message flag
-        uint8_t value;
-        if (sysex_buffer[SYSEX_BYTE_ID::COMMAND] == 0x02) {
-            value = sysex_buffer[SYSEX_BYTE_ID::VALUE];
-            setCV2Mode(value);
-            return;
-        }
-        if (sysex_buffer[SYSEX_BYTE_ID::COMMAND] == 0x03) {
-            value = sysex_buffer[SYSEX_BYTE_ID::VALUE];
-            midi_cc_filter = value;
-            return;
-        }
+    if (syx == 0xF7) {  // if current byte is end of message flag
+        handleSysExCommand(sysex_buffer);
     }
 
-    // example message:
-    // F0 7D 42 00 02 05 00 7F
-    // means set CV2 mode to INV_NOTE
 }
 
 
@@ -334,6 +403,13 @@ void limitNoteRange()
 
 
 
+void sendParaNote(uint8_t note)
+{
+    OCR1B = note << 2;
+}
+
+
+
 void sendInvNote(uint8_t note)
 {
     OCR1B = OCR1C - (note << 2);
@@ -346,22 +422,6 @@ void sendNote(uint8_t note)
     OCR1A = note << 2;  // Multiply note by 4 to set the voltage (1v/octave)
     if (cv2 == NOTE) OCR1B = note << 2;
     if (cv2 == INV_NOTE) sendInvNote(note);
-}
-
-
-void sendParaNote(uint8_t note)
-{
-    OCR1B = note << 2;
-}
-
-void handleRetrigModeToggle(uint8_t cc_value)
-{
-    if (cc_value > 83)
-        retrigger = RT_ALWAYS;
-    else if (cc_value > 42 && cc_value < 84)
-        retrigger = RT_NEW;
-    else
-        retrigger = RT_OFF;
 }
 
 
@@ -438,33 +498,75 @@ void handlePitchBend(uint8_t data1, uint8_t data2)
 
 
 
-void handleParaPriority(uint8_t note, uint8_t last_note)
+void handleParaPriority()
 {
-    switch (para_priority) {
-        case PARA_LO:
-            if (note > last_note) {
-                sendNote(note);
+    if (active_notes < 2) return;
+    uint8_t new_note = note_buffer[active_notes - 1];
+    uint8_t last_note = note_buffer[active_notes - 2];
+    uint8_t pedal_note = note_buffer[0];
+    uint8_t lo_note = 127;
+    uint8_t hi_note = 0;
+
+    for (int i = 0; i < active_notes; ++i) {
+        if (note_buffer[i] > hi_note) hi_note = note_buffer[i];
+        if (note_buffer[i] < lo_note) lo_note = note_buffer[i];
+    }
+
+    switch (para_mode) {
+        case PARA_RECENT:
+            sendNote(new_note);
+            sendParaNote(last_note);
+            break;
+
+        case PARA_RECENT_LO:
+            if (new_note > last_note) {
+                sendNote(new_note);
                 sendParaNote(last_note);
             } else {
                 sendNote(last_note);
-                sendParaNote(note);
+                sendParaNote(new_note);
             }
+            break;
+
+        case PARA_RECENT_HI:
+            if (new_note > last_note) {
+                sendNote(last_note);
+                sendParaNote(new_note);
+            } else {
+                sendNote(new_note);
+                sendParaNote(last_note);
+            }
+            break;
+
+        case PARA_OUTER:
+            sendNote(hi_note);
+            sendParaNote(lo_note);
             break;
 
         case PARA_HI:
-            if (note > last_note) {
+            if (new_note >= hi_note) {
                 sendNote(last_note);
-                sendParaNote(note);
+                sendParaNote(new_note);
             } else {
-                sendNote(note);
-                sendParaNote(last_note);
+                sendNote(new_note);
+                sendParaNote(hi_note);
             }
             break;
 
-        case PARA_LAST:
+        case PARA_LO:
+            if (new_note <= lo_note) {
+                sendNote(last_note);
+                sendParaNote(new_note);
+            } else {
+                sendNote(new_note);
+                sendParaNote(lo_note);
+            }
+            break;
+
+        case PARA_PEDAL:
         default:
-            sendNote(note);
-            sendParaNote(last_note);
+            sendNote(new_note);
+            sendParaNote(pedal_note);
             break;
     }
 }
@@ -475,19 +577,18 @@ void handleNoteOn(uint8_t note)
 {
     for (uint8_t n = 0; n < active_notes; n++) {  // If note is already in the buffer, play it, but don't add it again
         if (note_buffer[n] == note) {
-            sendNote(note);  // handle paraphonic?
+            sendNote(note);
             return;
         }
     }
 
-    if (active_notes < POLYPHONY_MAX) {
+    if (active_notes < MAX_NOTES) {
         note_buffer[active_notes] = note;
         active_notes++;
 
         if (cv2 == PARAPHONIC) {
             if (active_notes > 1) {
-                uint8_t last_note = note_buffer[active_notes-2];
-                handleParaPriority(note, last_note);
+                handleParaPriority();
             } else {
                 sendNote(note);
                 sendParaNote(note);
@@ -496,7 +597,7 @@ void handleNoteOn(uint8_t note)
             sendNote(note);
         }
 
-        if (retrigger != RT_OFF)
+        if (retrig_mode != RT_OFF)
             sendGate(GATE_STATE::RETRIG);
         else
             sendGate(GATE_STATE::OPEN);
@@ -514,7 +615,7 @@ void handleNoteOff(uint8_t note)
     for (uint8_t n = 0; n < active_notes; n++) {  // Check buffer to see if note is active
         if (note_buffer[n] == note) {
             note_off_match = true;
-            if (n < (POLYPHONY_MAX-1)) {  // If note is removed from middle of buffer, shift all notes to prevent empty slots
+            if (n < (MAX_NOTES-1)) {  // If note is removed from middle of buffer, shift all notes to prevent empty slots
                 note_buffer[n] = note_buffer[n+1];
                 note_buffer[n+1] = note;
             }
@@ -528,19 +629,19 @@ void handleNoteOff(uint8_t note)
 
         if (active_notes) {
             note = note_buffer[active_notes-1];
+
             if (cv2 == PARAPHONIC) {
                 if (active_notes > 1) {
-                    uint8_t last_note = note_buffer[active_notes-2];
-                    handleParaPriority(note, last_note);
+                    handleParaPriority();
                 } else {
                     sendNote(note);
-                    sendNote(note);
+                    sendParaNote(note);
                 }
             } else {
                 sendNote(note);
             }
 
-            if (retrigger == RT_ALWAYS)
+            if (retrig_mode == RT_ALWAYS)
                 sendGate(GATE_STATE::RETRIG);
             else
                 sendGate(GATE_STATE::OPEN);
@@ -597,7 +698,7 @@ void translateChannelMessage()
         // Handle control change
         if ((midi_status >> 4) == 0xB) {
             if (midi_data1 == RETRIG_MODE_CC) {
-                handleRetrigModeToggle(midi_data2);
+                setRetrigModeCC(midi_data2);
             } else if (cv2 == CC) {
                 handleControlChange(midi_data1, midi_data2);
             }
