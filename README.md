@@ -1,5 +1,5 @@
 # TinyMIDI2CV
-TinyMIDI2CV takes TTL-MIDI input and outputs a 1V/Octave CV and a Gate CV signal, as well as an attenuatable 0-5V CV signal (mode selectable by MIDI program change or SysEx).
+ATTiny85 circuit which takes TTL-MIDI input and outputs a 1V/Octave CV and a Gate CV signal, as well as an attenuatable 0-5V CV signal (modes configurable via MIDI program change or SysEx messages).
 
 This circuit can be embedded in other projects, or built standalone. I built mine in the form of a eurorack module.
 
@@ -9,8 +9,14 @@ This circuit can be embedded in other projects, or built standalone. I built min
 </p>
 
 
+### To-Do:
+- EEPROM write cv2 mode configurations etc. after changes
+- Update hardware drawings
+- Design compact PCB
+- (include ISP pins?)
+
 ### Changes
-- Added SysEx listener for configuring CV2, MIDI Channel, retrig mode, CC filter. Added Paraphonic Note mode for CV2. Added more options for retrigger. Updated project name.
+- Added SysEx listener for configuring CV2, MIDI Channel, retrig mode, CC filter. Added Paraphonic Note mode for CV2. Added more options for retrigger. Updated project name. Created SysEx reference document.
 
 - Further improvements to note buffer / gate behavior. Added MIDI CC legato (68) handler to enable/disable gate retrigger. MIDI filter default channel is now 1. More function compartmentalization for readability. Added alternative methods to control CV2 output, selectable via MIDI Program Change. More CV2 functions to come soon.
 
