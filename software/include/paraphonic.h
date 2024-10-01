@@ -3,7 +3,7 @@
 
     Copyright 2023-2024 Beau Sterling (Aether Soundlab)
 
-    Based on DIY Good Ol’ MIDI to CV by Jan Ostman:
+    Hardware config is based on DIY Good Ol’ MIDI to CV by Jan Ostman:
         (*) All in the spirit of open-source and open-hardware
         Janost 2019 Sweden
         The goMIDI2CV interface
@@ -34,14 +34,22 @@
 #include "global.h"
 
 
-enum PARAPHONIC_MODE {
-    PARA_RECENT,  PARA_RECENT_LO,    PARA_RECENT_HI,
-    PARA_OUTER,   PARA_HI, PARA_LO,  PARA_PEDAL,
-};
+enum PARAPHONIC_MODE : uint8_t {
+    PARA_RECENT,        // newest note is played on cv1, previous note is played on cv2
+    PARA_RECENT_INV,    // newest note is played on cv2, previous note is played on cv1
+    PARA_RECENT_LO,     // lower of the two newest notes is played on cv2, higher is played on cv1
+    PARA_RECENT_HI,     // higher of the two newest notes is played on cv2, lower is played on cv1
+    PARA_OUTER,         // highest note is played on cv1, lowest note is played on cv2
+    PARA_OUTER_INV,     // highest note is played on cv2, lowest note is played on cv1
+    PARA_LO,            // lowest pitch note is played on cv2, newest note (if not lo) is played on cv1
+    PARA_HI,            // highest pitch note is played on cv2, newest note (if not hi) is played on cv1
+    PARA_PEDAL,         // first note is always played on cv2, newest note is played on cv1
+    };
+#define PARAPHONIC_MODE_MAX PARA_PEDAL
 
 
 extern PARAPHONIC_MODE para_mode;
 
+void setParaphonicMode(uint8_t value);
 void setParaphonicModePC(void);
-void handleParaPriority(void);
-void sendParaNote(uint8_t note);
+void handleParaPriority(volatile uint8_t *note_buffer, volatile uint8_t active_notes);

@@ -3,7 +3,7 @@
 
     Copyright 2023-2024 Beau Sterling (Aether Soundlab)
 
-    Based on DIY Good Ol’ MIDI to CV by Jan Ostman:
+    Hardware config is based on DIY Good Ol’ MIDI to CV by Jan Ostman:
         (*) All in the spirit of open-source and open-hardware
         Janost 2019 Sweden
         The goMIDI2CV interface
@@ -33,7 +33,6 @@
 #include "midi.h"
 
 
-
 ISR (PCINT0_vect)
 {
     if (!(PINB & 1 << PINB0)) {           // Ignore if DI is high
@@ -48,7 +47,6 @@ ISR (PCINT0_vect)
 }
 
 
-
 ISR (TIMER0_COMPA_vect)
 {
     TIMSK &= ~(1 << OCIE0A);  // Disable COMPA interrupt
@@ -59,7 +57,6 @@ ISR (TIMER0_COMPA_vect)
     USICR = 1 << USIOIE | 0 << USIWM0 | 1 << USICS0;
     USISR = 1 << USIOIF | 8;  // Clear USI OVF flag, and set counter
 }
-
 
 
 ISR (USI_OVF_vect)

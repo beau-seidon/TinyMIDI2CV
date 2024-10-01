@@ -3,7 +3,7 @@
 
     Copyright 2023-2024 Beau Sterling (Aether Soundlab)
 
-    Based on DIY Good Ol’ MIDI to CV by Jan Ostman:
+    Hardware config is based on DIY Good Ol’ MIDI to CV by Jan Ostman:
         (*) All in the spirit of open-source and open-hardware
         Janost 2019 Sweden
         The goMIDI2CV interface
@@ -35,138 +35,125 @@
 #include "gate.h"
 
 
-
-void handleSysExCommand(volatile uint8_t *sysex_buffer);
-
+static inline void interpretSysExCommand(volatile uint8_t *sysex_buffer);
 
 
-#define SYSEX_ID 0x7D   // "Special ID" for non-commercial use only
-#define DEVICE_ID 0x42  // ASCII * (wild card), could mean anything... eg: life, the universe, and everything
+#define TM2CV_SYSEX_ID 0x7D   // "Special ID" for non-commercial use only
+#define TM2CV_DEVICE_ID 0x42  // ASCII * (wild card), could mean anything... eg: life, the universe, and everything
 
-enum SYSEX_BYTE_ID {
-    START, SYXID, DEVID, PADDING,
-    COMMAND, VALUE, CHECKSUM, STOP
-    };
+#define SYSEX_BUFFER_SIZE 6
+static volatile uint8_t sysex_buffer[SYSEX_BUFFER_SIZE];
+static volatile uint8_t sysex_byte_count = 0;
 
-enum SYSEX_COMMAND {
-    SYX_SET_CHANNEL, SYX_SET_CV2_MODE, SYX_SET_CC_FILTER, SYX_SET_PARAPHONIC_MODE, SYX_SET_RETRIG_MODE
-    };
-
-#define SYSEX_BUFFER_SIZE 16
-volatile uint8_t sysex_buffer[SYSEX_BUFFER_SIZE];
-volatile uint8_t sysex_byte_count = 0;
+static volatile bool sysex_msg_ok = false;
 
 volatile bool sysex_listen = false;
 volatile bool sysex_ignore = false;
-volatile bool sysex_msg_ok = false;
 
 
-
-void startSysExListener()
+void resetSysExBuffer(int max_element)
 {
-    sysex_listen = true;
+    for (int i = 0; i < max_element; ++i) {
+        sysex_buffer[i] = 0x0;
+    }
+    sysex_byte_count = 0;
+    sysex_ignore = true;
 }
 
+
+void startSysExListener(uint8_t syx)
+{
+    resetSysExBuffer(SYSEX_BUFFER_SIZE);
+    sysex_listen = true;
+    sysex_ignore = false;
+    sysex_msg_ok = false;
+    handleSysExData(syx);
+}
 
 
 void stopSysExListener(uint8_t syx)
 {
-    handleSysEx(syx);
-    for (int i = 0; i < SYSEX_BUFFER_SIZE; ++i) {
-        sysex_buffer[i] = 0x0;
-    }
-    sysex_byte_count = 0;
+    handleSysExData(syx);
+    resetSysExBuffer(SYSEX_BUFFER_SIZE);
     sysex_listen = false;
     sysex_ignore = false;
     sysex_msg_ok = false;
 }
 
 
-
-void handleSysEx(uint8_t syx)
+void handleSysExData(uint8_t syx)
 {
-    // check for buffer overflow
-    if (sysex_byte_count >= SYSEX_BUFFER_SIZE) {
-        for (int i = 0; i < SYSEX_BUFFER_SIZE; ++i) {
-            sysex_buffer[i] = 0x0;
+    if (!sysex_ignore) {
+        // check for buffer overflow
+        if (sysex_byte_count >= SYSEX_BUFFER_SIZE) {
+            resetSysExBuffer(SYSEX_BUFFER_SIZE);
+            return;  // reset entire buffer and ignore
         }
-        sysex_byte_count = 0;
-        sysex_ignore = true;
-        return;  // reset entire buffer and ignore
-    }
 
+        // load buffer with new byte
+        sysex_buffer[sysex_byte_count++] = syx;
 
-    // load buffer with new byte
-    sysex_buffer[sysex_byte_count] = syx;
-    sysex_byte_count++;
-
-
-    // check to see if message is valid
-    if (!sysex_msg_ok) {
-        if (sysex_buffer[0] == 0xF0) {  // if valid sysex start byte
-            if (sysex_byte_count >= 3) {
-                if (sysex_buffer[1] == SYSEX_ID || sysex_buffer[2] == DEVICE_ID) {  // if valid address
-                    sysex_msg_ok = true;
-                    return;  // message ok, load the rest
-                } else {
-                    for (int i = 0; i < sysex_byte_count; ++i) {
-                        sysex_buffer[i] = 0x0;
+        // check to see if message is valid
+        if (!sysex_msg_ok) {
+            if (sysex_buffer[0] == 0xF0) {  // if valid sysex start byte
+                if (sysex_byte_count >= 3) {
+                    if (sysex_buffer[SYX_SYXID] == TM2CV_SYSEX_ID &&
+                        sysex_buffer[SYX_DEVID] == TM2CV_DEVICE_ID) {  // if valid address
+                        sysex_msg_ok = true;
+                        return;  // message ok, load the rest
+                    } else {
+                        resetSysExBuffer(SYSEX_BUFFER_SIZE);
+                        return;  // invalid address, reset and ignore buffer
                     }
-                    sysex_byte_count = 0;
-                    sysex_ignore = true;
-                    return;  // invalid address, reset and ignore buffer
-                }
-            } else { return; }  // not enough bytes yet
-        } else {
-            sysex_buffer[0] = 0x0;
-            sysex_byte_count = 0;
-            sysex_ignore = true;
-            return;  // invalid start byte, reset and ignore buffer
+                } else { return; }  // not enough bytes yet
+            } else {
+                resetSysExBuffer(SYSEX_BUFFER_SIZE);
+                return;  // invalid start byte, reset and ignore buffer
+            }
         }
     }
-
 
     // interpret sysex message
-    if (syx == 0xF7) {  // if current byte is end of message flag
-        handleSysExCommand(sysex_buffer);
+    if (syx == 0xF7 && sysex_msg_ok) {  // if current byte is end of message flag
+        interpretSysExCommand(sysex_buffer);
     }
-
 }
 
 
-
-void handleSysExCommand(volatile uint8_t *sysex_buffer)
+static inline void interpretSysExCommand(volatile uint8_t *sysex_buffer)
 {
     // example message:
-    // F0 7D 42 00 02 05 00 7F
-    // means set CV2 mode to INV_NOTE
+    // F0 7D 42 03 05 xx... 7F
+    // means set CV2 mode to CV2_NOTE_INV
+    // format: START SYXID DEVID CMD VALUE extrastuff? STOP
 
-    uint8_t value = sysex_buffer[SYSEX_BYTE_ID::VALUE];
+    if (sysex_ignore) return;
+    uint8_t value = sysex_buffer[SYX_VALUE];
 
-    switch(sysex_buffer[SYSEX_BYTE_ID::COMMAND]) {
+    switch(sysex_buffer[SYX_COMMAND]) {
         case SYX_SET_CHANNEL:
-            if (value < 0 || value > 15) break;
-            midi_channel = value;
-            break;
-
-        case SYX_SET_CV2_MODE:
-            if (value < 0 || value > 15) break;
-            setCV2Mode(value);
+            if (value < 0 || value > 16) break;  // 16 = omni
+            setMIDIChannelFilter(value);
             break;
 
         case SYX_SET_CC_FILTER:
             if (value < 0 || value > 127) break;
-            midi_cc_filter = value;
+            setMIDICCFilter(value);
+            break;
+
+        case SYX_SET_CV2_MODE:
+            if (value < 0 || value > CV2_MODE_MAX) break;
+            setCV2Mode(value);
             break;
 
         case SYX_SET_PARAPHONIC_MODE:
-            if (value < 0 || value > 6) break;
-            para_mode = (PARAPHONIC_MODE)value;
+            if (value < 0 || value > PARAPHONIC_MODE_MAX) break;
+            setParaphonicMode(value);
             break;
 
         case SYX_SET_RETRIG_MODE:
-            if (value < 0 || value > 2) break;
-            retrig_mode = (RETRIGGER_MODE)value;
+            if (value < 0 || value > RETRIGGER_MODE_MAX) break;
+            setRetrigMode(value);
             break;
 
         default:

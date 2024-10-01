@@ -3,7 +3,7 @@
 
     Copyright 2023-2024 Beau Sterling (Aether Soundlab)
 
-    Based on DIY Good Ol’ MIDI to CV by Jan Ostman:
+    Hardware config is based on DIY Good Ol’ MIDI to CV by Jan Ostman:
         (*) All in the spirit of open-source and open-hardware
         Janost 2019 Sweden
         The goMIDI2CV interface
@@ -34,10 +34,6 @@
 #include "global.h"
 
 
-#define MAX_NOTES 16  // Set buffer and gate "polyphony" limit
-
-
-extern volatile uint8_t note_buffer[MAX_NOTES];
 extern volatile uint8_t active_notes;
 
 uint8_t limitNoteRange(uint8_t note);

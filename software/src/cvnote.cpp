@@ -3,7 +3,7 @@
 
     Copyright 2023-2024 Beau Sterling (Aether Soundlab)
 
-    Based on DIY Good Ol’ MIDI to CV by Jan Ostman:
+    Hardware config is based on DIY Good Ol’ MIDI to CV by Jan Ostman:
         (*) All in the spirit of open-source and open-hardware
         Janost 2019 Sweden
         The goMIDI2CV interface
@@ -34,13 +34,13 @@
 #include "gate.h"
 
 
+#define MAX_NOTES 16  // Set buffer and gate "polyphony" limit
 
-volatile uint8_t note_buffer[MAX_NOTES] = {0};
-volatile uint8_t active_notes = 0;                  // Gate will be open while any keys are pressed (any notes active)
+static volatile uint8_t note_buffer[MAX_NOTES] = {0};
+volatile uint8_t active_notes = 0;  // Gate will be open while any keys are pressed (any notes active)
 
-const uint8_t LOW_NOTE = 36;                        // Any note lower than C2 will be interpreted as C2
-const uint8_t HIGH_NOTE = 96;                       // Any note higher than C7 will be interpreted as C7
-
+const uint8_t LOW_NOTE = 36;        // Any note lower than C2 will be interpreted as C2
+const uint8_t HIGH_NOTE = 96;       // Any note higher than C7 will be interpreted as C7
 
 
 uint8_t limitNoteRange(uint8_t note)
@@ -50,7 +50,6 @@ uint8_t limitNoteRange(uint8_t note)
     note -= LOW_NOTE;                        // Subtract 36 to get into CV range
     return note;
 }
-
 
 
 void handleNoteOn(uint8_t note)
@@ -63,27 +62,25 @@ void handleNoteOn(uint8_t note)
     }
 
     if (active_notes < MAX_NOTES) {
-        note_buffer[active_notes] = note;
-        active_notes++;
+        note_buffer[active_notes++] = note;
 
-        if (cv2 == PARAPHONIC) {
+        if (cv2 == CV2_PARAPHONIC) {
             if (active_notes > 1) {
-                handleParaPriority();
+                handleParaPriority(note_buffer, active_notes);
             } else {
                 sendNote(note);
-                sendParaNote(note);
+                sendNoteCV2(note);
             }
         } else {
             sendNote(note);
         }
 
         if (retrig_mode != RT_OFF)
-            sendGate(GATE_STATE::RETRIG);
+            sendGate(GATE_RETRIG);
         else
-            sendGate(GATE_STATE::OPEN);
+            sendGate(GATE_OPEN);
     }
 }
-
 
 
 void handleNoteOff(uint8_t note)
@@ -110,33 +107,32 @@ void handleNoteOff(uint8_t note)
         if (active_notes) {
             note = note_buffer[active_notes-1];
 
-            if (cv2 == PARAPHONIC) {
+            if (cv2 == CV2_PARAPHONIC) {
                 if (active_notes > 1) {
-                    handleParaPriority();
+                    handleParaPriority(note_buffer, active_notes);
                 } else {
                     sendNote(note);
-                    sendParaNote(note);
+                    sendNoteCV2(note);
                 }
             } else {
                 sendNote(note);
             }
 
             if (retrig_mode == RT_ALWAYS)
-                sendGate(GATE_STATE::RETRIG);
+                sendGate(GATE_RETRIG);
             else
-                sendGate(GATE_STATE::OPEN);
+                sendGate(GATE_OPEN);
 
         } else {
-            sendGate(GATE_STATE::CLOSED);
+            sendGate(GATE_CLOSED);
         }
     }
 }
 
 
-
 void sendNote(uint8_t note)
 {
     OCR1A = note << 2;  // Multiply note by 4 to set the voltage (1v/octave)
-    if (cv2 == NOTE) OCR1B = note << 2;
-    if (cv2 == INV_NOTE) sendInvNote(note);
+    if (cv2 == CV2_NOTE) { sendNoteCV2(note); return; }
+    if (cv2 == CV2_NOTE_INV) sendNoteCV2Inv(note);
 }

@@ -3,7 +3,7 @@
 
     Copyright 2023-2024 Beau Sterling (Aether Soundlab)
 
-    Based on DIY Good Ol’ MIDI to CV by Jan Ostman:
+    Hardware config is based on DIY Good Ol’ MIDI to CV by Jan Ostman:
         (*) All in the spirit of open-source and open-hardware
         Janost 2019 Sweden
         The goMIDI2CV interface
@@ -28,9 +28,7 @@
 */
 
 
-
 // Set Fuses to E1 DD FE for PLLCLK 16MHz
-
 
 
 #include <Arduino.h>
@@ -42,39 +40,36 @@
 #include "cv2.h"
 
 
-
 void setup()
 {
     // Enable 64 MHz PLL and use as source for Timer1
     PLLCSR = 1 << PCKE | 1 << PLLE;
 
     // Setup the USI
-    USICR = 0;                                     // Disable USI.
-    GIFR = 1 << PCIF;                              // Clear pin change interrupt flag.
-    GIMSK |= 1 << PCIE;                            // Enable pin change interrupts
-    PCMSK |= 1 << PCINT0;                          // Enable pin change on pin 0
+    USICR = 0;                                      // Disable USI.
+    GIFR = 1 << PCIF;                               // Clear pin change interrupt flag.
+    GIMSK |= 1 << PCIE;                             // Enable pin change interrupts
+    PCMSK |= 1 << PCINT0;                           // Enable pin change on pin 0
 
     // Set up Timer/Counter1 for PWM output
-    TIMSK = 0;                                     // Timer interrupts OFF
-    TCCR1 = 1 << PWM1A | 2 << COM1A0 | 1 << CS10;  // PWM A, clear on match, 1:1 prescale
-    OCR1A = 0;                                     // Set initial Pitch to C2
-    OCR1B = 127;                                   // Set initial bend to center
-    OCR1C = 239;                                   // Set count to semi tones
+    TIMSK = 0;                                      // Timer interrupts OFF
+    TCCR1 = 1 << PWM1A | 2 << COM1A0 | 1 << CS10;   // PWM A, clear on match, 1:1 prescale
+    OCR1A = 0;                                      // Set initial Pitch to C2
+    OCR1B = 127;                                    // Set initial CV to center (pitchbend center)
+    OCR1C = 239;                                    // Set count to semi tones
 
     GTCCR = 0;
-    GTCCR = 1 << PWM1B | 2 << COM1B0;              // PWM B, clear on match
+    GTCCR = 1 << PWM1B | 2 << COM1B0;               // PWM B, clear on match
 
     // Setup GPIO
-    pinMode(USI_PIN, INPUT);                       // Enable USI input pin
-    pinMode(NOTE_CV_PIN, OUTPUT);                  // Enable PWM output pin
-    pinMode(GATE_CV_PIN, OUTPUT);                  // Enable Gate output pin
-    pinMode(MISC_CV_PIN, OUTPUT);                  // Enable Pitchbend PWM output pin
+    pinMode(USI_PIN, INPUT);                        // Enable USI input pin
+    pinMode(NOTE_CV_PIN, OUTPUT);                   // Enable PWM output pin
+    pinMode(GATE_CV_PIN, OUTPUT);                   // Enable Gate output pin
+    pinMode(MISC_CV_PIN, OUTPUT);                   // Enable CV2 PWM output pin
 
-    digitalWrite(GATE_CV_PIN,LOW);                 // Set initial Gate to LOW;
-    sendGate(CLOSED);
-    setCV2Mode(MODWHEEL);
+    sendGate(GATE_CLOSED);                          // Set initial Gate to LOW;
+    setCV2Mode(CV2_PITCH_BEND);                     // Set initial CV2 source to Pitchbend
 }
-
 
 
 void loop()

@@ -3,7 +3,7 @@
 
     Copyright 2023-2024 Beau Sterling (Aether Soundlab)
 
-    Based on DIY Good Ol’ MIDI to CV by Jan Ostman:
+    Hardware config is based on DIY Good Ol’ MIDI to CV by Jan Ostman:
         (*) All in the spirit of open-source and open-hardware
         Janost 2019 Sweden
         The goMIDI2CV interface
@@ -34,19 +34,23 @@
 #include "global.h"
 
 
-enum GATE_STATE { CLOSED, OPEN, RETRIG };
+enum GATE_STATE : uint8_t {
+    GATE_CLOSED,
+    GATE_OPEN,
+    GATE_RETRIG
+    };
+#define GATE_STATE_MAX GATE_RETRIG
 
-#define RETRIG_MODE_CC 68
-
-enum RETRIGGER_MODE {
+enum RETRIGGER_MODE : uint8_t {
     RT_OFF,    // never retrigger
     RT_NEW,    // retrigger when new notes are played
     RT_ALWAYS  // also retrigger when notes are released if other notes are still held
-};
+    };
+#define RETRIGGER_MODE_MAX RT_ALWAYS
 
 
 extern RETRIGGER_MODE retrig_mode;
 
-void setRetrigModePC();
-void setRetrigModeCC(uint8_t cc_value);
+void setRetrigMode(uint8_t value);
+void setRetrigModePC(void);
 void sendGate(GATE_STATE gate_state);

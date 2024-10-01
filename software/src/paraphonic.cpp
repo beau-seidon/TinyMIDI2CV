@@ -3,7 +3,7 @@
 
     Copyright 2023-2024 Beau Sterling (Aether Soundlab)
 
-    Based on DIY Good Ol’ MIDI to CV by Jan Ostman:
+    Hardware config is based on DIY Good Ol’ MIDI to CV by Jan Ostman:
         (*) All in the spirit of open-source and open-hardware
         Janost 2019 Sweden
         The goMIDI2CV interface
@@ -30,17 +30,16 @@
 
 #include "paraphonic.h"
 #include "cvnote.h"
-
+#include "cv2.h"
 
 
 PARAPHONIC_MODE para_mode = PARA_PEDAL;
 
 
-
 void setParaphonicModePC()
 {
     int pm = para_mode;
-    if (pm >= 6) {
+    if (pm >= PARAPHONIC_MODE_MAX) {
         pm = 0;
     } else {
         ++pm;
@@ -49,8 +48,13 @@ void setParaphonicModePC()
 }
 
 
+void setParaphonicMode(uint8_t value)
+{
+    para_mode = (PARAPHONIC_MODE)value;
+}
 
-void handleParaPriority()
+
+void handleParaPriority(volatile uint8_t *note_buffer, volatile uint8_t active_notes)
 {
     if (active_notes < 2) return;
     uint8_t new_note = note_buffer[active_notes - 1];
@@ -67,65 +71,68 @@ void handleParaPriority()
     switch (para_mode) {
         case PARA_RECENT:
             sendNote(new_note);
-            sendParaNote(last_note);
+            sendNoteCV2(last_note);
+            break;
+
+        case PARA_RECENT_INV:
+            sendNote(last_note);
+            sendNoteCV2(new_note);
             break;
 
         case PARA_RECENT_LO:
             if (new_note > last_note) {
                 sendNote(new_note);
-                sendParaNote(last_note);
+                sendNoteCV2(last_note);
             } else {
                 sendNote(last_note);
-                sendParaNote(new_note);
+                sendNoteCV2(new_note);
             }
             break;
 
         case PARA_RECENT_HI:
             if (new_note > last_note) {
                 sendNote(last_note);
-                sendParaNote(new_note);
+                sendNoteCV2(new_note);
             } else {
                 sendNote(new_note);
-                sendParaNote(last_note);
+                sendNoteCV2(last_note);
             }
             break;
 
         case PARA_OUTER:
             sendNote(hi_note);
-            sendParaNote(lo_note);
+            sendNoteCV2(lo_note);
             break;
 
-        case PARA_HI:
-            if (new_note >= hi_note) {
-                sendNote(last_note);
-                sendParaNote(new_note);
-            } else {
-                sendNote(new_note);
-                sendParaNote(hi_note);
-            }
+        case PARA_OUTER_INV:
+            sendNote(lo_note);
+            sendNoteCV2(hi_note);
             break;
 
         case PARA_LO:
             if (new_note <= lo_note) {
                 sendNote(last_note);
-                sendParaNote(new_note);
+                sendNoteCV2(new_note);
             } else {
                 sendNote(new_note);
-                sendParaNote(lo_note);
+                sendNoteCV2(lo_note);
+            }
+            break;
+
+        case PARA_HI:
+            if (new_note >= hi_note) {
+                sendNote(last_note);
+                sendNoteCV2(new_note);
+            } else {
+                sendNote(new_note);
+                sendNoteCV2(hi_note);
             }
             break;
 
         case PARA_PEDAL:
         default:
             sendNote(new_note);
-            sendParaNote(pedal_note);
+            sendNoteCV2(pedal_note);
             break;
     }
-}
-
-
-
-void sendParaNote(uint8_t note)
-{
-    OCR1B = note << 2;
 }

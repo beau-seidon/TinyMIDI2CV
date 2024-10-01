@@ -3,7 +3,7 @@
 
     Copyright 2023-2024 Beau Sterling (Aether Soundlab)
 
-    Based on DIY Good Ol’ MIDI to CV by Jan Ostman:
+    Hardware config is based on DIY Good Ol’ MIDI to CV by Jan Ostman:
         (*) All in the spirit of open-source and open-hardware
         Janost 2019 Sweden
         The goMIDI2CV interface
@@ -33,10 +33,29 @@
 #include <Arduino.h>
 #include "global.h"
 
+enum SYSEX_BYTE_ID : uint8_t {
+    SYX_START,
+    SYX_SYXID,
+    SYX_DEVID,
+    SYX_COMMAND,
+    SYX_VALUE,
+    SYX_STOP
+    };
+#define SYSEX_BYTE_ID_MAX SYX_STOP
+
+enum SYSEX_COMMAND : uint8_t {
+    SYX_SET_CHANNEL = 1,
+    SYX_SET_CC_FILTER,
+    SYX_SET_CV2_MODE,
+    SYX_SET_PARAPHONIC_MODE,
+    SYX_SET_RETRIG_MODE
+    };
+#define SYSEX_COMMAND_MAX SYX_SET_RETRIG_MODE
+
 
 extern volatile bool sysex_listen;
 extern volatile bool sysex_ignore;
 
-void startSysExListener(void);
-void handleSysEx(uint8_t syx);
+void startSysExListener(uint8_t syx);
 void stopSysExListener(uint8_t syx);
+void handleSysExData(uint8_t syx);

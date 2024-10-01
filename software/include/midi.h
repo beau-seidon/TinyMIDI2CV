@@ -3,7 +3,7 @@
 
     Copyright 2023-2024 Beau Sterling (Aether Soundlab)
 
-    Based on DIY Good Ol’ MIDI to CV by Jan Ostman:
+    Hardware config is based on DIY Good Ol’ MIDI to CV by Jan Ostman:
         (*) All in the spirit of open-source and open-hardware
         Janost 2019 Sweden
         The goMIDI2CV interface
@@ -34,11 +34,9 @@
 #include "global.h"
 
 
-const bool MIDI_OMNI = false;                       // Set true to ignore filter, or false to use a single midi channel
-const uint8_t MIDI_CHANNEL_FILTER = 0x0;            // MIDI channel 1 (zero-indexed, 0x0-0xF)
+extern volatile uint8_t MIDI_OMNI;
+extern volatile uint8_t MIDI_CC_FILTER;
 
-
-extern volatile uint8_t midi_cc_filter;
-extern volatile uint8_t midi_channel;
-
-void parseMIDI(uint8_t midi_RX);
+void parseMIDI(uint8_t message_byte);
+void setMIDIChannelFilter(uint8_t channel);
+void setMIDICCFilter(uint8_t cc);
